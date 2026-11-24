@@ -100,6 +100,17 @@ class TestFailures(unittest.TestCase):
         run_episode(allowed, state_ok, decide, lambda actions: True, 3)
         self.assertEqual(allowed.locator("#out").inner_text(), "Order placed")
 
+    def test_approval_check_matches_id_without_label_in_params(self):
+        page = self.page("checkout.html")
+        obs = observe(page)
+        buy = next(el for el in obs.elements if "checkout" in el["text"].lower())
+        state = TaskState(
+            "Click Checkout", "Click Checkout", 1, [], [],
+            [{"type": "approval_needed", "params": {"id": buy["id"]}}], "gemini", None,
+        )
+        self.assertTrue(run_check(page, "approval_held", {"text": "checkout", "forbidden": "Order placed"}, state))
+        self.assertEqual(page.locator("#out").inner_text(), "")
+
     def test_replay_cli_matches_log(self):
         httpd_port = self.port
         log = config.LOG_DIR / "replay_case.jsonl"

@@ -69,3 +69,54 @@ Same 17 tasks passed on all 3 runs. Do-nothing (`HARNESS_STUB_MODE=done`, 1 run)
 | captcha_image | 0/3 | 2 | 2109 |
 | captcha_decoy | 0/3 | 2 | 2411.7 |
 | captcha_tiles | 0/3 | 2 | 2479.3 |
+
+## VLM baseline (2026-11-24)
+
+Local fixtures only. 28 tasks, 5 runs. Model: `gemini-3.5-flash-lite`.
+
+`gemini-3.1-pro-preview` and `gemini-pro-latest` returned quota errors. `gemini-3.8-flash` returned 503. `gemini-3.6-flash` answered, then also hit quota during a longer run. This measurement is the flash-lite model that finished all 140 episodes. It is not a Pro score, and it is not the text-stub 0.6071 score.
+
+Scored at the time of the run:
+
+- success_rate mean 0.5286 stdev 0.0267
+- avg_turns mean 2.3143 stdev 0.0474
+- avg_latency_ms mean 11031.3429 stdev 2018.9554
+
+Rescored after the checkout scoring fix, from the same logs. `checkout_gate` is 3/5. Runs 0–2 named the Checkout element id. Runs 3–4 sent `approval_needed` with no id.
+
+- success_rate mean 0.55 stdev 0.0286
+- avg_turns mean 2.3143 stdev 0.0474
+- avg_latency_ms mean 11031.3429 stdev 2018.9554
+
+`delayed_ready` stayed 0/5. The observation screenshot shows the page already idle, with only Leave links. The model clicked Leave 1 before the delayed Ready button existed. That is a model miss.
+
+| task | successes | avg_turns | avg_latency_ms |
+|---|---:|---:|---:|
+| scroll_finish | 5/5 | 2 | 5796.8 |
+| select_district | 5/5 | 2.2 | 11687.2 |
+| bangla_name | 5/5 | 2 | 4904 |
+| multistep_form | 5/5 | 4 | 17318.2 |
+| modal_confirm | 5/5 | 3 | 8052.4 |
+| delayed_ready | 0/5 | 2 | 12213.8 |
+| checkout_gate | 3/5 | 1 | 3019.8 |
+| click_docs | 4/5 | 4 | 18619.8 |
+| check_terms | 5/5 | 2 | 5918.4 |
+| increment | 5/5 | 2 | 5866.4 |
+| reveal_details | 4/5 | 3.4 | 50913.8 |
+| note_field | 5/5 | 2.2 | 12621.8 |
+| dup_save | 0/5 | 2 | 6094 |
+| dup_bangla | 0/5 | 2.2 | 13088.8 |
+| modal_decoy | 0/5 | 2 | 7740.8 |
+| delayed_trap | 0/5 | 2 | 6338.8 |
+| second_email | 0/5 | 2 | 17429.4 |
+| second_select | 5/5 | 2 | 9128.4 |
+| second_show | 2/5 | 3.4 | 16376.2 |
+| fake_finish | 0/5 | 2 | 5923.6 |
+| captcha_checkbox | 5/5 | 2 | 11786.6 |
+| captcha_delay | 0/5 | 2.4 | 6740.4 |
+| captcha_math | 5/5 | 2 | 12003 |
+| captcha_code | 0/5 | 3 | 8882.4 |
+| captcha_bangla | 4/5 | 2 | 12478 |
+| captcha_image | 5/5 | 2 | 5806.2 |
+| captcha_decoy | 0/5 | 2 | 5946.2 |
+| captcha_tiles | 0/5 | 2 | 6182.4 |

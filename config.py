@@ -15,8 +15,9 @@ LOG_DIR.mkdir(exist_ok=True)
 RUN_DIR.mkdir(exist_ok=True)
 
 # main.py reads these. agent.py does not choose a model.
-MODEL = os.environ.get("HARNESS_MODEL", "stub")  # "stub" | "real"
+MODEL = os.environ.get("HARNESS_MODEL", "stub")  # "stub" | "real" | "gemini"
 STUB_MODE = os.environ.get("HARNESS_STUB_MODE", "heuristic")  # "heuristic" | "random" | "done"
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.6-flash")
 
 SETTLE_MS = 500
 MAX_STEPS = 5

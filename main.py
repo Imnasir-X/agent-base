@@ -10,6 +10,9 @@ def load_decide():
     if config.MODEL == "real":
         from model_real import decide
         return decide
+    if config.MODEL == "gemini":
+        from model_gemini import decide
+        return decide
     from model_stub import decide
     return decide
 

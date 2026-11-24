@@ -46,13 +46,19 @@ def run_episode(page, state, decide, approver=None, max_steps: int = 5) -> dict:
         started = time.perf_counter()
         obs = observe(page)
         state.subgoal = next_subgoal(state, obs)
-        actions = list(decide(obs, state))
+        actions = []
+        error = None
+        try:
+            actions = list(decide(obs, state))
+        except Exception as exc:
+            error = "model:" + str(exc)[:300]
         turn_id = uuid.uuid4().hex[:12]
         log_turn_start(turn_id, state, obs, actions)
         results = []
-        error = None
         try:
-            if must_pause(actions, obs, approver):
+            if error:
+                pass
+            elif must_pause(actions, obs, approver):
                 state.pending_approval = [{"type": a.type, "params": dict(a.params)} for a in actions]
                 error = "not_approved"
             else:
@@ -67,7 +73,7 @@ def run_episode(page, state, decide, approver=None, max_steps: int = 5) -> dict:
         turns += 1
         taken.extend({"type": a.type, "params": dict(a.params)} for a in actions)
         advance(state, actions, results)
-        if error == "not_approved":
+        if error == "not_approved" or (error or "").startswith("model:"):
             break
         if _finished(actions, results):
             break

@@ -68,7 +68,8 @@ def _one(browser, port, task, run_i, decide, blocked) -> dict:
     page = context.new_page()
     page.route("**/*", lambda route: _guard(route, blocked))
     page.goto(f"http://127.0.0.1:{port}/{task['start']}")
-    state = TaskState(task["goal"], task["goal"], 0, [], [], None, f"{config.MODEL}:{config.STUB_MODE}", None)
+    label = config.GEMINI_MODEL if config.MODEL == "gemini" else f"{config.MODEL}:{config.STUB_MODE}"
+    state = TaskState(task["goal"], task["goal"], 0, [], [], None, label, None)
     episode = run_episode(page, state, decide, None, int(task.get("max_steps") or config.MAX_STEPS))
     ok = run_check(page, task["check"], task.get("args") or {}, state)
     episode["success"] = bool(ok)

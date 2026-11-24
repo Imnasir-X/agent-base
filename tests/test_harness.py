@@ -53,7 +53,7 @@ class TestShape(unittest.TestCase):
     def test_files_stay_short(self):
         for name in [
             "config.py", "main.py", "agent.py", "perception.py", "actions.py", "state.py",
-            "planner.py", "logger.py", "reward.py", "model_stub.py", "model_real.py",
+            "planner.py", "logger.py", "reward.py", "model_stub.py", "model_real.py", "model_gemini.py",
             "eval_checks.py", "eval_runner.py", "replay.py",
         ]:
             self.assertLessEqual(_lines(ROOT / name), 150, name)
@@ -68,6 +68,13 @@ class TestShape(unittest.TestCase):
     def test_parse_actions_and_approver(self):
         payload = {"output_text": json.dumps({"actions": [{"type": "done", "params": {}}]})}
         self.assertEqual(parse_actions(payload)[0].type, "done")
+        from model_gemini import _parse
+        gemini = {"candidates": [{"content": {"parts": [{"text": "{\"actions\":[{\"type\":\"done\",\"params\":{}}]}"}]}}]}
+        self.assertEqual(_parse(gemini)[0].type, "done")
+        bare = {"candidates": [{"content": {"parts": [{"text": "[{\"type\":\"click_element\",\"params\":{\"id\":2}}]"}]}}]}
+        self.assertEqual(_parse(bare)[0].params["id"], 2)
+        single = {"candidates": [{"content": {"parts": [{"text": "{\"action\":{\"type\":\"click_element\",\"params\":{\"id\":19}}}"}]}}]}
+        self.assertEqual(_parse(single)[0].params["id"], 19)
         self.assertTrue(approved([Action("done", {})], None))
         self.assertFalse(approved([Action("click_element", {"id": 1})], lambda actions: False))
 
