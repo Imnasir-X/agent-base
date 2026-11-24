@@ -37,7 +37,8 @@ STAMP_JS = """
       el.getAttribute('placeholder') || '', el.getAttribute('name') || ''];
     const text = bits.map(t => String(t).trim()).filter(Boolean).join(' ').replace(/\\s+/g, ' ').slice(0, 140);
     out.push({id, tag: el.tagName.toLowerCase(), text, x: Math.round(r.x), y: Math.round(r.y),
-      w: Math.round(r.width), h: Math.round(r.height)});
+      w: Math.round(r.width), h: Math.round(r.height),
+      requires_approval: el.getAttribute('data-requires-approval') === 'true'});
     id += 1;
   }
   return out;

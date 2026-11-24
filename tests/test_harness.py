@@ -16,7 +16,7 @@ from actions import Action, ActionResult, execute_turn
 from agent import approved, run_episode
 from eval_checks import run_check
 from model_real import parse_actions
-from model_stub import _TYPE, decide
+from model_stub import _TYPE, _math_pair, decide
 from perception import observe
 from PIL import Image
 from reward import reward
@@ -54,13 +54,15 @@ class TestShape(unittest.TestCase):
         for name in [
             "config.py", "main.py", "agent.py", "perception.py", "actions.py", "state.py",
             "planner.py", "logger.py", "reward.py", "model_stub.py", "model_real.py",
-            "eval_checks.py", "eval_runner.py",
+            "eval_checks.py", "eval_runner.py", "replay.py",
         ]:
             self.assertLessEqual(_lines(ROOT / name), 150, name)
 
     def test_type_parser_and_reward(self):
         goal = "Type 'Ada' into Name, type 'ada@example.com' into Email, and submit"
         self.assertEqual(_TYPE.findall(goal), [("Ada", "Name"), ("ada@example.com", "Email")])
+        puzzle = type("S", (), {"task": "Solve 3 + 4 and type the answer into Answer"})()
+        self.assertEqual(_math_pair(puzzle), [("7", "Answer")])
         self.assertAlmostEqual(reward({"success": True, "num_turns": 2, "latency_ms": 2000, "actions": []}), 0.985)
 
     def test_parse_actions_and_approver(self):

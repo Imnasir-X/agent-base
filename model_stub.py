@@ -9,15 +9,23 @@ import config
 from actions import Action
 
 _STOP = {"click", "the", "into", "and", "then", "press", "type", "select", "a", "submit", "enter"}
-_TYPE = re.compile(r"type '([^']*)' into ([a-z0-9 ]+?)(?=,| and submit| and press|$)", re.I)
+_TYPE = re.compile(r"type '([^']*)' into (.+?)(?=,| and submit| and press|$)", re.I)
 _SELECT = re.compile(r"select '([^']*)'", re.I)
 _WORD = re.compile(r"[a-z0-9]+|[\u0980-\u09ff]+")
+_MATH = re.compile(r"(\d+)\s*([+-])\s*(\d+)")
 
 
 def decide(observation, state) -> list[Action]:
+    if config.STUB_MODE == "done":
+        return [Action("done", {})]
     if config.STUB_MODE == "random":
         return _random(observation, state)
-    return [_heuristic(observation, state) or Action("done", {})]
+    action = _heuristic(observation, state)
+    if action:
+        return [action]
+    if state.step == 0:
+        return [Action("wait", {"kind": "fixed", "milliseconds": 700})]
+    return [Action("done", {})]
 
 
 def _failed_id(state):
@@ -64,8 +72,18 @@ def _heuristic(observation, state):
     return None
 
 
+def _math_pair(state):
+    match = _MATH.search(state.task)
+    field = re.search(r"into ([^,]+)$", state.task, re.I)
+    if not match or not field:
+        return []
+    left, right = int(match.group(1)), int(match.group(3))
+    total = left + right if match.group(2) == "+" else left - right
+    return [(str(total), field.group(1).strip())]
+
+
 def _next_type(state, elements):
-    pairs = [(text, field.strip()) for text, field in _TYPE.findall(state.task)]
+    pairs = [(text, field.strip()) for text, field in _TYPE.findall(state.task)] or _math_pair(state)
     submit = "submit" in state.task.lower() or "press enter" in state.task.lower()
     for index, (text, field) in enumerate(pairs):
         if _done_type(state, field, text):

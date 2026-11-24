@@ -54,6 +54,8 @@ def decide(observation, state) -> list[Action]:
     prompt = (
         "You are a GUI agent. Return exactly one next action. "
         "Use an element id from the list. Do not repeat last_failure. "
+        "If requires_approval is true, return approval_needed instead of click_element. "
+        "For a local puzzle, use the checkbox, the sum, or the code on the page. "
         f"State: {json.dumps(summary, ensure_ascii=False)}. "
         f"Elements: {json.dumps(elements, ensure_ascii=False)}."
     )

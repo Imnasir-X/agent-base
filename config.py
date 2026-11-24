@@ -16,7 +16,7 @@ RUN_DIR.mkdir(exist_ok=True)
 
 # main.py reads these. agent.py does not choose a model.
 MODEL = os.environ.get("HARNESS_MODEL", "stub")  # "stub" | "real"
-STUB_MODE = os.environ.get("HARNESS_STUB_MODE", "heuristic")  # "heuristic" | "random"
+STUB_MODE = os.environ.get("HARNESS_STUB_MODE", "heuristic")  # "heuristic" | "random" | "done"
 
 SETTLE_MS = 500
 MAX_STEPS = 5

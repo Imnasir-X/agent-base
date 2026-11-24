@@ -1,7 +1,7 @@
 """The loop. It does not import Playwright, a model SDK, or the filesystem.
 
 decide, observe, execute_turn, log, advance, planner, and reward are the only calls.
-approver is None in the base, which means the approval branch is taken.
+approver is None for ordinary actions. Targets marked requires_approval still pause.
 """
 import time
 import uuid
@@ -15,10 +15,27 @@ from state import advance
 
 
 def approved(actions, approver) -> bool:
-    """None approves everything. A callable gates the turn."""
+    """None allows ordinary actions. A callable gates the whole turn."""
     if approver is None:
         return True
     return bool(approver(actions))
+
+
+def _risky(actions, obs) -> bool:
+    flagged = {el["id"] for el in obs.elements if el.get("requires_approval")}
+    for action in actions:
+        if action.type == "approval_needed":
+            return True
+        if action.params.get("id") in flagged:
+            return True
+    return False
+
+
+def must_pause(actions, obs, approver) -> bool:
+    """Pause when the approver rejects the turn, or when a risky target has no approver."""
+    if approver is None:
+        return _risky(actions, obs)
+    return not approver(actions)
 
 
 def run_episode(page, state, decide, approver=None, max_steps: int = 5) -> dict:
@@ -35,7 +52,7 @@ def run_episode(page, state, decide, approver=None, max_steps: int = 5) -> dict:
         results = []
         error = None
         try:
-            if not approved(actions, approver):
+            if must_pause(actions, obs, approver):
                 state.pending_approval = [{"type": a.type, "params": dict(a.params)} for a in actions]
                 error = "not_approved"
             else:
