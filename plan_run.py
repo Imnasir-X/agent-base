@@ -81,6 +81,44 @@ def run_spec(page, check, state) -> bool:
     return bool(run_check(page, name, args, state))
 
 
+_SECRET_IDS = {"code", "otp", "password", "secret", "pin"}
+
+
+def _hidden(page, check) -> bool:
+    """Vault values, password fields, and code-like ids stay out of notes."""
+    from logger import held
+    if not isinstance(check, dict):
+        return False
+    value = str(check.get("value") or "")
+    if value and value in held():
+        return True
+    eid = str(check.get("id") or "")
+    if eid.lower() in _SECRET_IDS:
+        return True
+    if not eid:
+        return False
+    loc = page.locator(f"#{eid}")
+    if not loc.count():
+        return False
+    el = loc.first
+    if (el.get_attribute("data-agent-secret") or "") == "1":
+        return True
+    kind = (el.get_attribute("type") or "").lower()
+    name = (el.get_attribute("name") or "").lower()
+    return kind == "password" or name in _SECRET_IDS
+
+
+def _keep(state, check, page) -> str:
+    from logger import scrub
+    result = on_pass(state, check)
+    if _hidden(page, check):
+        key = str(check.get("note") or check.get("id") or "")
+        if key and state.notes:
+            state.notes.pop(key, None)
+    state.notes = scrub(dict(state.notes or {}))
+    return result
+
+
 def settle(state, page) -> bool:
     """True means the episode should stop."""
     sub = current(state)
@@ -91,7 +129,7 @@ def settle(state, page) -> bool:
             return on_fail(state, "review") == "stop"
         if sub.get("precondition") and not run_spec(page, sub.get("precondition"), state):
             return on_fail(state, "precondition") == "stop"
-        return on_pass(state, sub.get("review")) == "stop"
+        return _keep(state, sub.get("review"), page) == "stop"
     if run_spec(page, sub.get("check"), state):
-        return on_pass(state, sub.get("check")) == "stop"
+        return _keep(state, sub.get("check"), page) == "stop"
     return on_fail(state, "check") == "stop"

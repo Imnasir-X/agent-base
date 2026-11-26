@@ -81,6 +81,16 @@ class TestPlanContract(unittest.TestCase):
         self.assertEqual(report["subgoal_pass_rate"], {"Fill": 1.0, "Save": 0.5})
         self.assertEqual(report["fixture_pass_rate"], 0.5)
         self.assertEqual(report["fixture_stdev"], 0.5)
+        from plan_report import missing_slots, try_attach
+        state = TaskState("Goal", "Goal", 0, [], [], None, "s", None)
+        bad = {"subgoals": [{"text": "A", "check": {"type": "nope"}}]}
+        self.assertFalse(try_attach(state, bad, {}))
+        self.assertIsNone(state.plan)
+        raw = {"subgoals": [{"text": "A", "check": {"type": "value_equals", "id": "name", "value": "{row.name}"}}]}
+        self.assertEqual(missing_slots(raw, {}), ["row.name"])
+        self.assertFalse(try_attach(state, raw, {}))
+        self.assertTrue(try_attach(state, raw, {"row.name": "Ada"}))
+        self.assertEqual(state.subgoal, "A")
 
 
 class TestPlanRun(unittest.TestCase):
@@ -144,6 +154,28 @@ class TestPlanRun(unittest.TestCase):
         self.assertEqual(page.locator("#name").input_value(), "Ada")
         self.assertEqual(calls[0], "Fill name and email from row 3")
         self.assertEqual(calls[1], "Fill name and email from row 3")
+
+    def test_secret_fields_do_not_stay_in_notes(self):
+        from logger import remember
+        from plan_run import _keep
+        page = self.browser.new_context().new_page()
+        self.addCleanup(page.context.close)
+        page.set_content("<input id='code' type='password' value='4419'><input id='name' value='Ada'>")
+        state = TaskState("t", "t", 0, [], [], None, "s", None)
+        state.notes = {}
+        state.plan = {
+            "phase": "act", "status": "run", "index": 0, "replans": 0, "results": [],
+            "spec": {"subgoals": [{"text": "Code"}, {"text": "Name"}]},
+        }
+        _keep(state, {"type": "value_equals", "id": "code", "value": "4419"}, page)
+        self.assertNotIn("code", state.notes)
+        remember("vq7-note-secret")
+        state.plan["index"] = 0
+        state.plan["phase"] = "act"
+        state.plan["status"] = "run"
+        _keep(state, {"type": "value_equals", "id": "name", "value": "Ada vq7-note-secret"}, page)
+        self.assertEqual(state.notes.get("name"), "Ada ***")
+        self.assertNotIn("vq7-note-secret", json.dumps(state.notes))
 
     def test_select_fires_input_and_change(self):
         page = self.browser.new_context().new_page()

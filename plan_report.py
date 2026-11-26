@@ -1,5 +1,10 @@
 """Contract helper and the three planner numbers. No browser and no model."""
-from plan import on_fail, on_pass, resolve, subgoal_text, validate
+import json
+import re
+
+from plan import attach, on_fail, on_pass, resolve, subgoal_text, validate
+
+_SLOT = re.compile(r"\{(row\.[^{}]+|base)\}")
 
 
 def measure(episodes) -> dict:
@@ -26,6 +31,21 @@ def measure(episodes) -> dict:
     else:
         spread = 0.0
     return {"subgoal_pass_rate": rates, "fixture_pass_rate": mean, "fixture_stdev": round(spread, 4)}
+
+
+def missing_slots(plan, slots=None) -> list[str]:
+    found = set(_SLOT.findall(json.dumps(plan)))
+    return sorted(found - set(slots or {}))
+
+
+def try_attach(state, plan, slots=None) -> bool:
+    """False leaves the task unplanned. The loop then uses the whole goal."""
+    slots = slots or {}
+    if validate(plan) or missing_slots(plan, slots):
+        state.plan = None
+        return False
+    attach(state, plan, slots)
+    return True
 
 
 def apply_case(case):
