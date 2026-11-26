@@ -29,34 +29,38 @@ def _server():
 
 def capture_m0():
     """Open the local m0 fixture and save runs/m0.png. No live sites."""
+    from session import open_context
     httpd = _server()
     port = httpd.server_address[1]
     dest = config.RUN_DIR / "m0.png"
     with _browser() as playwright:
-        browser = playwright.chromium.launch(headless=True)
-        context = browser.new_context(viewport=config.VIEWPORT, device_scale_factor=1)
+        context = open_context(playwright, True)
         page = context.new_page()
         page.goto(f"http://127.0.0.1:{port}/m0.html")
         page.wait_for_timeout(config.SETTLE_MS)
         page.screenshot(path=str(dest))
-        browser.close()
+        context.close()
     httpd.shutdown()
     return dest
 
 
 def run_task(fixture: str, task: str, max_steps: int = 5) -> dict:
+    from approver import approve
+    from ask_user import answer
+    from session import open_context
+    from vault import install
+    install()
     httpd = _server()
     port = httpd.server_address[1]
     config.LOG_PATH = config.LOG_DIR / "task.jsonl"
     with _browser() as playwright:
-        browser = playwright.chromium.launch(headless=True)
-        context = browser.new_context(viewport=config.VIEWPORT, device_scale_factor=1)
+        context = open_context(playwright, True)
         page = context.new_page()
         page.goto(f"http://127.0.0.1:{port}/{fixture}")
         state = TaskState(task, task, 0, [], [], None, config.MODEL, None)
-        episode = run_episode(page, state, load_decide(), None, max_steps)
+        episode = run_episode(page, state, load_decide(), approve, max_steps, answer)
         episode["url"] = page.url
-        browser.close()
+        context.close()
     httpd.shutdown()
     return episode
 

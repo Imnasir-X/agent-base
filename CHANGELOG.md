@@ -71,3 +71,17 @@ Per-run success counts become 15, 15, 17, 15, 15 out of 28.
 | success_rate | 0.5286 | 0.0267 | 0.55 | 0.0286 |
 
 Turns and latency are unchanged, because this does not re-execute the episodes. The band for later steps is success_rate about 0.55, stdev 0.0286.
+
+## 2026-11-26 — Saved session, vault, approver, ask_user
+
+These four pieces sit beside the loop. `agent.py` still does not import Playwright, a model SDK, or the filesystem. The 28-task list is unchanged. `login.html`, `inbox.html`, `opened.html`, and `code_gate.html` are not in `eval_tasks.json`.
+
+`session.py` opens a persistent Chromium profile from `config.SESSION_DIR`. `login_once.py` lets a person log in once. A later task reuses that profile. The session test logs in through a filler, then "Click Open message" reaches `opened.html` with no `type` or `fill_secret` action in the log.
+
+`vault.py` resolves `VAULT_<NAME>` or `secrets.json` and registers `fill_secret`. The model sends `secret_name` only. The value is typed inside `execute_turn` after the intent line is written. Password fields are omitted from element text, stored as `*` in the DOM hash, and painted black on the SoM shot.
+
+`approver.approve` denies checkout, pay, delete, and send as whole words, plus the phrases "submit order" and "confirm order". A lone Confirm stays allowed so `modal_confirm` is unchanged. Eval mode does not read stdin. A denial sets `not_approved` and the loop continues, leaving `pending_approval` in place. A granted checkout still places the order.
+
+`ask_user` pauses for `answerer`. With no answerer the loop stops on `waiting_user`. The reply is attached after the intent line, so the question turn's log does not contain the reply. `main.py` passes `ask_user.answer`. The eval runner does not, so a suite run cannot block on stdin.
+
+The Gemini 28×5 gate was not re-run. Stub controls still have to stay in band: done at 0.0, random near 0, heuristic between 0.5 and 0.7.

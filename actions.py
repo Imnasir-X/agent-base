@@ -146,3 +146,5 @@ def _bind(kind):
     return lambda page, params: _other(page, kind, params)
 _RUN = {"click_element": _click, "type": _type, "select": _select, "composite": _composite}
 _RUN.update({kind: _bind(kind) for kind in ("key", "scroll", "goto", "wait", "done", "approval_needed")})
+def register_action(kind, fn):
+    _RUN[kind] = fn

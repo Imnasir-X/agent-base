@@ -31,14 +31,34 @@ def _risky(actions, obs) -> bool:
     return False
 
 
+def _allow(approver, actions, obs) -> bool:
+    try:
+        return bool(approver(actions, obs))
+    except TypeError:
+        return bool(approver(actions))
+
+
 def must_pause(actions, obs, approver) -> bool:
     """Pause when the approver rejects the turn, or when a risky target has no approver."""
     if approver is None:
         return _risky(actions, obs)
-    return not approver(actions)
+    return not _allow(approver, actions, obs)
 
 
-def run_episode(page, state, decide, approver=None, max_steps: int = 5) -> dict:
+def _answer(actions, obs, answerer, state):
+    from actions import ActionResult
+    state.pending_approval = [{"type": a.type, "params": dict(a.params)} for a in actions]
+    if answerer is None:
+        return [], "waiting_user"
+    reply = str(answerer(actions, obs))
+    for action in actions:
+        if action.type == "ask_user":
+            action.params["answer"] = reply
+    state.pending_approval = None
+    return [ActionResult(True, "")], None
+
+
+def run_episode(page, state, decide, approver=None, max_steps: int = 5, answerer=None) -> dict:
     turns = 0
     latency_total = 0
     taken = []
@@ -58,11 +78,12 @@ def run_episode(page, state, decide, approver=None, max_steps: int = 5) -> dict:
         try:
             if error:
                 pass
+            elif any(action.type == "ask_user" for action in actions):
+                results, error = _answer(actions, obs, answerer, state)
             elif must_pause(actions, obs, approver):
                 state.pending_approval = [{"type": a.type, "params": dict(a.params)} for a in actions]
                 error = "not_approved"
             else:
-                state.pending_approval = None
                 results = execute_turn(page, actions)
         except Exception as exc:
             error = str(exc)
@@ -73,7 +94,7 @@ def run_episode(page, state, decide, approver=None, max_steps: int = 5) -> dict:
         turns += 1
         taken.extend({"type": a.type, "params": dict(a.params)} for a in actions)
         advance(state, actions, results)
-        if error == "not_approved" or (error or "").startswith("model:"):
+        if (error or "").startswith("model:") or error == "waiting_user":
             break
         if _finished(actions, results):
             break

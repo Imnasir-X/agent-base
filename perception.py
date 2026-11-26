@@ -33,11 +33,14 @@ STAMP_JS = """
     }
     const wrap = el.closest('label');
     if (!labelText && wrap) labelText = wrap.innerText || '';
-    const bits = [labelText, el.innerText || '', el.value || '', el.getAttribute('aria-label') || '',
-      el.getAttribute('placeholder') || '', el.getAttribute('name') || ''];
+    const masked = el.tagName === 'INPUT' && String(el.type || '').toLowerCase() === 'password';
+    const bits = masked
+      ? [labelText, el.getAttribute('placeholder') || '', el.getAttribute('name') || '']
+      : [labelText, el.innerText || '', el.value || '', el.getAttribute('aria-label') || '',
+         el.getAttribute('placeholder') || '', el.getAttribute('name') || ''];
     const text = bits.map(t => String(t).trim()).filter(Boolean).join(' ').replace(/\\s+/g, ' ').slice(0, 140);
     out.push({id, tag: el.tagName.toLowerCase(), text, x: Math.round(r.x), y: Math.round(r.y),
-      w: Math.round(r.width), h: Math.round(r.height),
+      w: Math.round(r.width), h: Math.round(r.height), masked,
       requires_approval: el.getAttribute('data-requires-approval') === 'true'});
     id += 1;
   }
@@ -54,7 +57,9 @@ HASH_JS = """
     });
   });
   const vals = [...document.querySelectorAll('input, textarea, select')].map(el => {
-    return (el.id || el.name || '') + '=' + (el.value || '') + (el.checked ? ':1' : ':0');
+    const secret = el.tagName === 'INPUT' && String(el.type || '').toLowerCase() === 'password';
+    const shown = secret ? (el.value ? '*' : '') : (el.value || '');
+    return (el.id || el.name || '') + '=' + shown + (el.checked ? ':1' : ':0');
   });
   return root.innerHTML + '\\n' + vals.join('|') + '\\n' + window.scrollY;
 }
@@ -92,6 +97,8 @@ def _draw(raw_path, som_path, elements: list[dict]) -> None:
     pen = ImageDraw.Draw(image)
     for el in elements:
         x, y, w, h = el["x"], el["y"], el["w"], el["h"]
+        if el.get("masked"):
+            pen.rectangle([x, y, x + w, y + h], fill=(0, 0, 0))
         pen.rectangle([x, y, x + w, y + h], outline=(255, 0, 0), width=3)
         pen.rectangle([x, max(0, y - 14), x + 22, max(0, y)], fill=(255, 0, 0))
         pen.text((x + 2, max(0, y - 13)), str(el["id"]), fill=(255, 255, 255))

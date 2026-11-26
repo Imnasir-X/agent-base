@@ -11,13 +11,13 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 import config
 from agent import run_episode
+from approver import approve
 from eval_checks import run_check
 from main import load_decide
 from reward import reward
 from state import TaskState
-
-_LAUNCH = ["--disable-background-networking", "--disable-component-update", "--disable-sync"]
-
+from vault import install as install_vault
+install_vault()
 
 class _Quiet(SimpleHTTPRequestHandler):
     def log_message(self, fmt, *args):
@@ -48,33 +48,33 @@ def run_eval(runs: int = 3) -> dict:
     rows = []
     blocked = {"n": 0}
     from playwright.sync_api import sync_playwright
+    from session import open_context
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=True, args=_LAUNCH)
+        context = open_context(playwright, True)
         for task in tasks:
             for run_i in range(runs):
-                rows.append(_one(browser, port, task, run_i, decide, blocked))
-        browser.close()
+                rows.append(_one(context, port, task, run_i, decide, blocked))
+        context.close()
     httpd.shutdown()
     if blocked["n"]:
         raise RuntimeError(f"blocked {blocked['n']} non-local requests")
     return _summary(tasks, rows, runs)
 
 
-def _one(browser, port, task, run_i, decide, blocked) -> dict:
+def _one(context, port, task, run_i, decide, blocked) -> dict:
     config.LOG_PATH = config.LOG_DIR / f"{task['name']}_r{run_i}.jsonl"
     if config.LOG_PATH.exists():
         config.LOG_PATH.unlink()
-    context = browser.new_context(viewport=config.VIEWPORT, device_scale_factor=1)
     page = context.new_page()
     page.route("**/*", lambda route: _guard(route, blocked))
     page.goto(f"http://127.0.0.1:{port}/{task['start']}")
     label = config.GEMINI_MODEL if config.MODEL == "gemini" else f"{config.MODEL}:{config.STUB_MODE}"
     state = TaskState(task["goal"], task["goal"], 0, [], [], None, label, None)
-    episode = run_episode(page, state, decide, None, int(task.get("max_steps") or config.MAX_STEPS))
+    episode = run_episode(page, state, decide, approve, int(task.get("max_steps") or config.MAX_STEPS))
     ok = run_check(page, task["check"], task.get("args") or {}, state)
     episode["success"] = bool(ok)
     episode["reward"] = reward(episode)
-    context.close()
+    page.close()
     return {"name": task["name"], "run": run_i, "success": int(ok),
             "turns": episode["num_turns"], "latency": episode["latency_ms"]}
 

@@ -11,8 +11,10 @@ ROOT = Path(__file__).resolve().parent
 FIXTURES = ROOT / "eval_fixtures"
 LOG_DIR = ROOT / "logs"
 RUN_DIR = ROOT / "runs"
+SESSION_DIR = ROOT / "session"
 LOG_DIR.mkdir(exist_ok=True)
 RUN_DIR.mkdir(exist_ok=True)
+SESSION_DIR.mkdir(exist_ok=True)
 
 # main.py reads these. agent.py does not choose a model.
 MODEL = os.environ.get("HARNESS_MODEL", "stub")  # "stub" | "real" | "gemini"

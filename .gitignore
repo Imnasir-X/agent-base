@@ -2,6 +2,9 @@ __pycache__/
 *.pyc
 .venv/
 logs/*.jsonl
+logs/*.txt
 runs/*.png
 runs/*.json
 .pytest_cache/
+session/
+secrets.json
