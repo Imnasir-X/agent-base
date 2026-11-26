@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>enter submit</title>
+<style>
+  html, body { margin: 0; background: #123456; color: #fff; font-family: sans-serif; }
+  body { padding: 24px; }
+  input { margin: 8px; padding: 8px; font-size: 16px; }
+</style>
+</head>
+<body>
+<label for="note">Note</label>
+<input id="note">
+<p id="out"></p>
+<script>
+document.addEventListener("keydown", function (event) {
+  if (event.key === "Enter") document.getElementById("out").textContent = "Order placed";
+});
+</script>
+</body>
+</html>

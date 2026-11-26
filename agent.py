@@ -7,7 +7,8 @@ import time
 import uuid
 
 from actions import execute_turn
-from logger import log_turn_end, log_turn_start
+import guard
+from logger import log_turn_end, log_turn_start, remember, scrub
 from perception import observe
 from planner import next_subgoal
 from reward import reward as score_episode
@@ -51,6 +52,7 @@ def _answer(actions, obs, answerer, state):
     if answerer is None:
         return [], "waiting_user"
     reply = str(answerer(actions, obs))
+    remember(reply)
     for action in actions:
         if action.type == "ask_user":
             action.params["answer"] = reply
@@ -62,16 +64,22 @@ def run_episode(page, state, decide, approver=None, max_steps: int = 5, answerer
     turns = 0
     latency_total = 0
     taken = []
-    while state.step < max_steps:
+    while state.step < max_steps and state.step < guard.ceiling():
         started = time.perf_counter()
         obs = observe(page)
+        stop = guard.blocked(state, obs)
+        if stop:
+            turn_id = uuid.uuid4().hex[:12]
+            log_turn_start(turn_id, state, obs, [])
+            log_turn_end(turn_id, state.step, [], int((time.perf_counter() - started) * 1000), 0, stop)
+            break
         state.subgoal = next_subgoal(state, obs)
         actions = []
         error = None
         try:
             actions = list(decide(obs, state))
         except Exception as exc:
-            error = "model:" + str(exc)[:300]
+            error = "model:" + scrub(str(exc))[:300]
         turn_id = uuid.uuid4().hex[:12]
         log_turn_start(turn_id, state, obs, actions)
         results = []
@@ -86,7 +94,7 @@ def run_episode(page, state, decide, approver=None, max_steps: int = 5, answerer
             else:
                 results = execute_turn(page, actions)
         except Exception as exc:
-            error = str(exc)
+            error = scrub(str(exc))
         finally:
             latency = int((time.perf_counter() - started) * 1000)
             log_turn_end(turn_id, state.step, results, latency, len(actions), error)
@@ -98,7 +106,7 @@ def run_episode(page, state, decide, approver=None, max_steps: int = 5, answerer
             break
         if _finished(actions, results):
             break
-    episode = {"success": False, "num_turns": turns, "latency_ms": latency_total, "actions": taken}
+    episode = {"success": False, "num_turns": turns, "latency_ms": latency_total, "actions": scrub(taken)}
     episode["reward"] = score_episode(episode)
     return episode
 

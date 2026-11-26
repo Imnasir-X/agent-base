@@ -1,0 +1,97 @@
+{
+  "suite": "agent-base-core",
+  "version": 2,
+  "cases": [
+    {"id": "guard.local_is_allowed", "op": "guard.blocked", "env": {"HARNESS_MAX_STEPS": "8", "HARNESS_ALLOW_DOMAINS": "127.0.0.1,localhost"}, "url": "http://127.0.0.1:8765/home.html", "state": {"step": 0}, "expect": null},
+    {"id": "guard.localhost_is_allowed", "op": "guard.blocked", "env": {"HARNESS_MAX_STEPS": "8", "HARNESS_ALLOW_DOMAINS": "127.0.0.1,localhost"}, "url": "http://localhost/a", "state": {"step": 0}, "expect": null},
+    {"id": "guard.blank_url_is_allowed", "op": "guard.blocked", "env": {"HARNESS_MAX_STEPS": "8", "HARNESS_ALLOW_DOMAINS": "127.0.0.1,localhost"}, "url": "", "state": {"step": 0}, "expect": null},
+    {"id": "guard.foreign_host_blocks", "op": "guard.blocked", "env": {"HARNESS_MAX_STEPS": "8", "HARNESS_ALLOW_DOMAINS": "127.0.0.1,localhost"}, "url": "http://EVIL.TEST/a", "state": {"step": 0}, "expect": "domain_blocked"},
+    {"id": "guard.subdomain_is_not_the_parent", "op": "guard.blocked", "env": {"HARNESS_MAX_STEPS": "8", "HARNESS_ALLOW_DOMAINS": "example.com"}, "url": "http://app.example.com/a", "state": {"step": 0}, "expect": "domain_blocked"},
+    {"id": "guard.step_limit_wins_over_domain", "op": "guard.blocked", "env": {"HARNESS_MAX_STEPS": "8", "HARNESS_ALLOW_DOMAINS": "127.0.0.1,localhost"}, "url": "http://evil.test/a", "state": {"step": 8}, "expect": "step_limit"},
+    {"id": "guard.two_identical_failures_continue", "op": "guard.blocked", "env": {"HARNESS_MAX_STEPS": "8", "HARNESS_ALLOW_DOMAINS": "127.0.0.1,localhost"}, "url": "http://127.0.0.1/a", "state": {"step": 2, "failures": [
+      {"type": "click_element", "params": {"id": 7}, "reason": "no_element_found"},
+      {"type": "click_element", "params": {"id": 7}, "reason": "no_element_found"}
+    ]}, "expect": null},
+    {"id": "guard.third_identical_failure_stops", "op": "guard.blocked", "env": {"HARNESS_MAX_STEPS": "8", "HARNESS_ALLOW_DOMAINS": "127.0.0.1,localhost"}, "url": "http://127.0.0.1/a", "state": {"step": 3, "failures": [
+      {"type": "click_element", "params": {"id": 7}, "reason": "no_element_found"},
+      {"type": "click_element", "params": {"id": 7}, "reason": "no_element_found"},
+      {"type": "click_element", "params": {"id": 7}, "reason": "no_element_found"}
+    ]}, "expect": "repeated_failure"},
+    {"id": "guard.different_reason_continues", "op": "guard.blocked", "env": {"HARNESS_MAX_STEPS": "8", "HARNESS_ALLOW_DOMAINS": "127.0.0.1,localhost"}, "url": "http://127.0.0.1/a", "state": {"step": 3, "failures": [
+      {"type": "click_element", "params": {"id": 7}, "reason": "no_element_found"},
+      {"type": "click_element", "params": {"id": 7}, "reason": "no_element_found"},
+      {"type": "click_element", "params": {"id": 7}, "reason": "timeout"}
+    ]}, "expect": null},
+    {"id": "guard.only_the_last_three_count", "op": "guard.blocked", "env": {"HARNESS_MAX_STEPS": "8", "HARNESS_ALLOW_DOMAINS": "127.0.0.1,localhost"}, "url": "http://127.0.0.1/a", "state": {"step": 4, "failures": [
+      {"type": "click_element", "params": {"id": 7}, "reason": "no_element_found"},
+      {"type": "click_element", "params": {"id": 7}, "reason": "no_element_found"},
+      {"type": "click_element", "params": {"id": 7}, "reason": "no_element_found"},
+      {"type": "click_element", "params": {"id": 8}, "reason": "no_element_found"}
+    ]}, "expect": null},
+    {"id": "guard.a_new_streak_of_three_stops", "op": "guard.blocked", "env": {"HARNESS_MAX_STEPS": "8", "HARNESS_ALLOW_DOMAINS": "127.0.0.1,localhost"}, "url": "http://127.0.0.1/a", "state": {"step": 4, "failures": [
+      {"type": "click_element", "params": {"id": 7}, "reason": "no_element_found"},
+      {"type": "click_element", "params": {"id": 8}, "reason": "no_element_found"},
+      {"type": "click_element", "params": {"id": 8}, "reason": "no_element_found"},
+      {"type": "click_element", "params": {"id": 8}, "reason": "no_element_found"}
+    ]}, "expect": "repeated_failure"},
+
+    {"id": "approver.type_is_free", "op": "approver.is_risky", "actions": [{"type": "type", "params": {"id": 1, "text": "Ada"}}], "expect": false},
+    {"id": "approver.type_submit_is_a_commit", "op": "approver.is_risky", "actions": [{"type": "type", "params": {"id": 1, "text": "Ada", "submit": true}}], "expect": true},
+    {"id": "approver.fill_secret_submit_is_a_commit", "op": "approver.is_risky", "actions": [{"type": "fill_secret", "params": {"id": 1, "secret_name": "GATE", "submit": true}}], "expect": true},
+    {"id": "approver.enter_is_a_commit", "op": "approver.is_risky", "actions": [{"type": "key", "params": {"key": "Enter"}}], "expect": true},
+    {"id": "approver.return_is_a_commit", "op": "approver.is_risky", "actions": [{"type": "key", "params": {"key": "Return"}}], "expect": true},
+    {"id": "approver.tab_is_free", "op": "approver.is_risky", "actions": [{"type": "key", "params": {"key": "Tab"}}], "expect": false},
+    {"id": "approver.second_action_can_make_the_turn_a_commit", "op": "approver.is_risky", "actions": [{"type": "type", "params": {"id": 1, "text": "Ada"}}, {"type": "key", "params": {"key": "enter"}}], "expect": true},
+    {"id": "approver.scroll_and_done_are_free", "op": "approver.is_risky", "actions": [{"type": "scroll", "params": {"direction": "down"}}, {"type": "done", "params": {}}], "expect": false},
+    {"id": "approver.docs_click_is_free", "op": "approver.is_risky", "elements": [{"id": 1, "tag": "a", "text": "Documentation"}], "actions": [{"type": "click_element", "params": {"id": 1}}], "expect": false},
+    {"id": "approver.checkout_is_a_commit", "op": "approver.is_risky", "elements": [{"id": 2, "tag": "button", "text": "Checkout"}], "actions": [{"type": "click_element", "params": {"id": 2}}], "expect": true},
+    {"id": "approver.bare_confirm_is_free", "op": "approver.is_risky", "elements": [{"id": 3, "tag": "button", "text": "Confirm", "context": ""}], "actions": [{"type": "click_element", "params": {"id": 3}}], "expect": false},
+    {"id": "approver.confirm_under_delete_heading_is_a_commit", "op": "approver.is_risky", "elements": [{"id": 4, "tag": "button", "text": "Confirm", "context": "Delete this file"}], "actions": [{"type": "click_element", "params": {"id": 4}}], "expect": true},
+    {"id": "approver.ok_on_a_pay_form_is_a_commit", "op": "approver.is_risky", "elements": [{"id": 5, "tag": "button", "text": "OK", "form_action": "/pay"}], "actions": [{"type": "click_element", "params": {"id": 5}}], "expect": true},
+    {"id": "approver.submit_button_flag_is_a_commit", "op": "approver.is_risky", "elements": [{"id": 6, "tag": "button", "text": "OK", "submit": true}], "actions": [{"type": "click_element", "params": {"id": 6}}], "expect": true},
+    {"id": "approver.place_order_is_a_commit", "op": "approver.is_risky", "elements": [{"id": 7, "tag": "button", "text": "Place order"}], "actions": [{"type": "click_element", "params": {"id": 7}}], "expect": true},
+    {"id": "approver.bangla_pay_is_a_commit", "op": "approver.is_risky", "elements": [{"id": 8, "tag": "button", "text": "পেমেন্ট"}], "actions": [{"type": "click_element", "params": {"id": 8}}], "expect": true},
+    {"id": "approver.bangla_delete_context_is_a_commit", "op": "approver.is_risky", "elements": [{"id": 9, "tag": "button", "text": "OK", "context": "মুছে ফেলুন"}], "actions": [{"type": "click_element", "params": {"id": 9}}], "expect": true},
+    {"id": "approver.payments_plural_is_not_the_word_payment", "op": "approver.is_risky", "elements": [{"id": 10, "tag": "a", "text": "payments"}], "actions": [{"type": "click_element", "params": {"id": 10}}], "expect": false},
+    {"id": "approver.newsletter_confirm_is_free", "op": "approver.is_risky", "elements": [{"id": 11, "tag": "button", "text": "Confirm", "context": "Please confirm your email"}], "actions": [{"type": "click_element", "params": {"id": 11}}], "expect": false},
+    {"id": "approver.eval_denies_checkout_without_stdin", "op": "approver.approve", "mode": "eval", "elements": [{"id": 2, "tag": "button", "text": "Checkout"}], "actions": [{"type": "click_element", "params": {"id": 2}}], "expect": false},
+    {"id": "approver.eval_allows_a_read", "op": "approver.approve", "mode": "eval", "elements": [{"id": 1, "tag": "a", "text": "Documentation"}], "actions": [{"type": "click_element", "params": {"id": 1}}], "expect": true},
+
+    {"id": "planner.fresh_task", "op": "planner.next_subgoal", "state": {"task": "Click About", "completed": []}, "has_observation": false, "expect": "Click About"},
+    {"id": "planner.observation_does_not_change_a_fresh_task", "op": "planner.next_subgoal", "state": {"task": "Click About", "completed": []}, "has_observation": true, "expect": "Click About"},
+    {"id": "planner.any_completion_means_done", "op": "planner.next_subgoal", "state": {"task": "Click About", "completed": [{"type": "click_element"}]}, "has_observation": false, "expect": "done"},
+    {"id": "planner.completion_with_observation_means_done", "op": "planner.next_subgoal", "state": {"task": "Click About", "completed": [{"type": "click_element"}]}, "has_observation": true, "expect": "done"},
+
+    {"id": "state.success_advances_and_clears_failure", "op": "state.advance", "state": {"task": "Click About", "subgoal": "Click About", "step": 0, "last_failure": {"action": {"type": "click_element", "params": {"id": 9}}, "reason": "old"}}, "actions": [{"type": "click_element", "params": {"id": 1, "text": "About"}}], "results": [{"success": true, "reason": ""}], "expect": {"step": 1, "subgoal": "done", "completed": [{"type": "click_element", "params": {"id": 1, "text": "About"}, "success": true, "reason": ""}], "failures": [], "last_failure": null}},
+    {"id": "state.missing_result_is_an_exception", "op": "state.advance", "state": {"task": "Click About", "subgoal": "Click About", "step": 0}, "actions": [{"type": "click_element", "params": {"id": 3}}], "results": [], "expect": {"step": 1, "subgoal": "Click About", "completed": [], "failures": [{"type": "click_element", "params": {"id": 3}, "success": false, "reason": "exception"}], "last_failure": {"action": {"type": "click_element", "params": {"id": 3}}, "reason": "exception"}}},
+    {"id": "state.a_later_success_does_not_erase_an_earlier_failure", "op": "state.advance", "state": {"task": "Click About", "subgoal": "Click About", "step": 0}, "actions": [{"type": "click_element", "params": {"id": 1}}, {"type": "click_element", "params": {"id": 2}}], "results": [{"success": false, "reason": "no_element_found"}, {"success": true, "reason": ""}], "expect": {"step": 1, "subgoal": "done", "completed": [{"type": "click_element", "params": {"id": 2}, "success": true, "reason": ""}], "failures": [{"type": "click_element", "params": {"id": 1}, "success": false, "reason": "no_element_found"}], "last_failure": {"action": {"type": "click_element", "params": {"id": 1}}, "reason": "no_element_found"}}},
+    {"id": "state.empty_turn_keeps_the_old_failure", "op": "state.advance", "state": {"task": "Click About", "subgoal": "Click About", "step": 2, "last_failure": {"action": {"type": "click_element", "params": {"id": 9}}, "reason": "old"}}, "actions": [], "results": [], "expect": {"step": 3, "subgoal": "Click About", "completed": [], "failures": [], "last_failure": {"action": {"type": "click_element", "params": {"id": 9}}, "reason": "old"}}},
+
+    {"id": "reward.success_pays_one_minus_turns_and_time", "op": "reward.score", "episode": {"success": true, "num_turns": 2, "latency_ms": 1000}, "expect": 0.9875},
+    {"id": "reward.failure_is_only_the_penalty", "op": "reward.score", "episode": {"success": false, "num_turns": 4, "latency_ms": 2000}, "expect": -0.025},
+    {"id": "reward.missing_fields_are_zero", "op": "reward.score", "episode": {}, "expect": 0.0},
+
+    {"id": "vault.host_match", "op": "vault.lookup", "env": {"VAULT_ORACLE_ONLY_9f3": "oracle-secret", "VAULT_ORACLE_ONLY_9f3_DOMAINS": "api.example.com"}, "name": "ORACLE_ONLY_9f3", "host": "API.Example.com", "expect": {"ok": "oracle-secret"}},
+    {"id": "vault.other_host_is_refused", "op": "vault.lookup", "env": {"VAULT_ORACLE_ONLY_9f3": "oracle-secret", "VAULT_ORACLE_ONLY_9f3_DOMAINS": "api.example.com"}, "name": "ORACLE_ONLY_9f3", "host": "other.test", "expect": {"error": "KeyError"}},
+    {"id": "vault.missing_domain_list_is_refused", "op": "vault.lookup", "env": {"VAULT_ORACLE_ONLY_9f3": "oracle-secret", "VAULT_ORACLE_ONLY_9f3_DOMAINS": ""}, "name": "ORACLE_ONLY_9f3", "host": "api.example.com", "expect": {"error": "KeyError"}},
+    {"id": "vault.empty_host_is_refused", "op": "vault.lookup", "env": {"VAULT_ORACLE_ONLY_9f3": "oracle-secret", "VAULT_ORACLE_ONLY_9f3_DOMAINS": "api.example.com"}, "name": "ORACLE_ONLY_9f3", "host": "", "expect": {"error": "KeyError"}},
+
+    {"id": "logger.secret_is_scrubbed_nested", "op": "logger.scrub", "remember": ["otp-4419"], "value": {"error": "code otp-4419", "nested": ["otp-4419"]}, "expect": {"error": "code ***", "nested": ["***"]}},
+    {"id": "logger.one_character_is_not_a_secret", "op": "logger.scrub", "remember": ["a"], "value": "a cat", "expect": "a cat"},
+    {"id": "logger.longer_secret_wins", "op": "logger.scrub", "remember": ["ab", "abcd"], "value": "xxabcd yyab", "expect": "xx*** yy***"},
+
+    {"id": "hurdle.held_commit_still_passes", "op": "hurdle.score", "policy": "record", "code_ok": true, "rows": [{"kind": "outcome", "step": 0, "error": "not_approved"}, {"kind": "check", "success": true, "check": "approval_held"}], "expect": {"passed": true, "code_ok": true, "policy": "record", "blocked_attempts": 1}},
+    {"id": "hurdle.blocked_attempt_fails_the_task", "op": "hurdle.score", "policy": "attempt_fails", "code_ok": true, "rows": [{"kind": "outcome", "step": 0, "error": "not_approved"}], "expect": {"passed": false, "code_ok": true, "policy": "attempt_fails", "blocked_attempts": 1}},
+    {"id": "hurdle.domain_block_is_a_blocked_attempt", "op": "hurdle.score", "policy": "attempt_fails", "code_ok": true, "rows": [{"kind": "outcome", "step": 0, "error": "domain_blocked"}], "expect": {"passed": false, "code_ok": true, "policy": "attempt_fails", "blocked_attempts": 1}},
+    {"id": "hurdle.step_limit_is_a_blocked_attempt", "op": "hurdle.score", "policy": "attempt_fails", "code_ok": true, "rows": [{"kind": "outcome", "step": 8, "error": "step_limit"}], "expect": {"passed": false, "code_ok": true, "policy": "attempt_fails", "blocked_attempts": 1}},
+    {"id": "hurdle.repeated_failure_is_a_blocked_attempt", "op": "hurdle.score", "policy": "attempt_fails", "code_ok": true, "rows": [{"kind": "outcome", "step": 3, "error": "repeated_failure"}], "expect": {"passed": false, "code_ok": true, "policy": "attempt_fails", "blocked_attempts": 1}},
+    {"id": "hurdle.two_denials_are_counted", "op": "hurdle.score", "policy": "attempt_fails", "code_ok": true, "rows": [{"kind": "outcome", "step": 0, "error": "not_approved"}, {"kind": "outcome", "step": 1, "error": "not_approved"}], "expect": {"passed": false, "code_ok": true, "policy": "attempt_fails", "blocked_attempts": 2}},
+    {"id": "hurdle.clean_run_passes", "op": "hurdle.score", "policy": "attempt_fails", "code_ok": true, "rows": [{"kind": "outcome", "step": 0, "error": null}], "expect": {"passed": true, "code_ok": true, "policy": "attempt_fails", "blocked_attempts": 0}},
+    {"id": "hurdle.failed_check_stays_failed", "op": "hurdle.score", "policy": "attempt_fails", "code_ok": false, "rows": [{"kind": "outcome", "step": 0, "error": null}], "expect": {"passed": false, "code_ok": false, "policy": "attempt_fails", "blocked_attempts": 0}},
+    {"id": "hurdle.model_error_is_not_a_block", "op": "hurdle.score", "policy": "attempt_fails", "code_ok": true, "rows": [{"kind": "outcome", "step": 0, "error": "model:timeout"}], "expect": {"passed": true, "code_ok": true, "policy": "attempt_fails", "blocked_attempts": 0}},
+    {"id": "hurdle.waiting_user_is_not_a_block", "op": "hurdle.score", "policy": "attempt_fails", "code_ok": true, "rows": [{"kind": "outcome", "step": 0, "error": "waiting_user"}], "expect": {"passed": true, "code_ok": true, "policy": "attempt_fails", "blocked_attempts": 0}},
+    {"id": "hurdle.unknown_policy_only_records", "op": "hurdle.score", "policy": "hybrid", "code_ok": true, "rows": [{"kind": "outcome", "step": 0, "error": "not_approved"}], "expect": {"passed": true, "code_ok": true, "policy": "record", "blocked_attempts": 1}},
+    {"id": "hurdle.intent_line_is_not_an_attempt", "op": "hurdle.score", "policy": "attempt_fails", "code_ok": true, "rows": [{"kind": "intent", "error": "not_approved"}, {"kind": "outcome", "step": 0, "error": null}], "expect": {"passed": true, "code_ok": true, "policy": "attempt_fails", "blocked_attempts": 0}},
+    {"id": "hurdle.empty_log_passes_a_clean_check", "op": "hurdle.score", "policy": "attempt_fails", "code_ok": true, "rows": [], "expect": {"passed": true, "code_ok": true, "policy": "attempt_fails", "blocked_attempts": 0}}
+  ]
+}

@@ -33,14 +33,22 @@ STAMP_JS = """
     }
     const wrap = el.closest('label');
     if (!labelText && wrap) labelText = wrap.innerText || '';
-    const masked = el.tagName === 'INPUT' && String(el.type || '').toLowerCase() === 'password';
+    const marked = el.getAttribute('data-agent-secret') === '1';
+    const masked = marked || (el.tagName === 'INPUT' && String(el.type || '').toLowerCase() === 'password');
     const bits = masked
-      ? [labelText, el.getAttribute('placeholder') || '', el.getAttribute('name') || '']
+      ? [labelText, el.getAttribute('placeholder') || '', el.getAttribute('name') || '', el.getAttribute('aria-label') || '']
       : [labelText, el.innerText || '', el.value || '', el.getAttribute('aria-label') || '',
          el.getAttribute('placeholder') || '', el.getAttribute('name') || ''];
     const text = bits.map(t => String(t).trim()).filter(Boolean).join(' ').replace(/\\s+/g, ' ').slice(0, 140);
+    const dialog = el.closest('[role="dialog"],dialog,[data-modal]');
+    const head = dialog ? dialog.querySelector('h1,h2,h3') : null;
+    const form = el.closest('form');
+    const typ = String(el.getAttribute('type') || '').toLowerCase();
+    const submit = typ === 'submit' || (el.tagName === 'BUTTON' && typ !== 'button' && !!form);
     out.push({id, tag: el.tagName.toLowerCase(), text, x: Math.round(r.x), y: Math.round(r.y),
-      w: Math.round(r.width), h: Math.round(r.height), masked,
+      w: Math.round(r.width), h: Math.round(r.height), masked, submit,
+      context: head ? (head.innerText || '') : '',
+      form_action: form ? (form.getAttribute('action') || '') : '',
       requires_approval: el.getAttribute('data-requires-approval') === 'true'});
     id += 1;
   }
@@ -57,7 +65,7 @@ HASH_JS = """
     });
   });
   const vals = [...document.querySelectorAll('input, textarea, select')].map(el => {
-    const secret = el.tagName === 'INPUT' && String(el.type || '').toLowerCase() === 'password';
+    const secret = el.getAttribute('data-agent-secret') === '1' || (el.tagName === 'INPUT' && String(el.type || '').toLowerCase() === 'password');
     const shown = secret ? (el.value ? '*' : '') : (el.value || '');
     return (el.id || el.name || '') + '=' + shown + (el.checked ? ':1' : ':0');
   });
@@ -92,6 +100,19 @@ def pixels_differ(before: bytes, after: bytes) -> bool:
     return ratio > config.PIXEL_DIFF_THRESHOLD
 
 
+def _cover(path, elements: list[dict]) -> None:
+    """Black out secret fields on the saved raw shot. The page itself is unchanged."""
+    if not any(el.get("masked") for el in elements):
+        return
+    image = Image.open(path).convert("RGB")
+    pen = ImageDraw.Draw(image)
+    for el in elements:
+        if el.get("masked"):
+            x, y, w, h = el["x"], el["y"], el["w"], el["h"]
+            pen.rectangle([x, y, x + w, y + h], fill=(0, 0, 0))
+    image.save(path)
+
+
 def _draw(raw_path, som_path, elements: list[dict]) -> None:
     image = Image.open(raw_path).convert("RGB")
     pen = ImageDraw.Draw(image)
@@ -116,5 +137,6 @@ def observe(page) -> Observation:
     raw_path = config.RUN_DIR / f"{stamp}_raw.png"
     som_path = config.RUN_DIR / f"{stamp}_som.png"
     page.screenshot(path=str(raw_path))
+    _cover(raw_path, elements)
     _draw(raw_path, som_path, elements)
     return Observation(str(raw_path), str(som_path), elements, page.url, page.title(), dom_hash(page))

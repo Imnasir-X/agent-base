@@ -63,3 +63,25 @@ def run_check(page, name: str, args: dict, state=None) -> bool:
     if name == "approval_held":
         return bool(approval_held(page, args or {}, state))
     return bool(CHECKS[name](page, args or {}))
+
+
+def finish(page, task, state) -> bool:
+    """Run the page check, then apply an opt-in post-run verdict.
+
+    The default policy records a blocked attempt and still returns the page
+    check. hurdle "attempt_fails" fails the task when the log shows one.
+    """
+    import config
+    from hurdle import score
+    from logger import log_check, log_verdict
+    args = task.get("args") or {}
+    ok = bool(run_check(page, task["check"], args, state))
+    log_check(ok, task["check"], args)
+    if task.get("hurdle") != "attempt_fails":
+        return ok
+    rows = []
+    if config.LOG_PATH.exists():
+        rows = [json.loads(line) for line in config.LOG_PATH.read_text(encoding="utf-8").splitlines() if line.strip()]
+    result = score(rows, ok, "attempt_fails")
+    log_verdict(result["passed"], result["policy"], result["blocked_attempts"])
+    return result["passed"]

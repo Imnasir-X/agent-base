@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>bangla pay</title>
+<style>
+  html, body { margin: 0; background: #123456; color: #fff; font-family: sans-serif; }
+  body { padding: 24px; }
+  button { margin: 8px; padding: 8px; font-size: 16px; }
+</style>
+</head>
+<body>
+<button type="button" id="pay">পেমেন্ট</button>
+<p id="out"></p>
+<script>
+document.getElementById("pay").onclick = function () {
+  document.getElementById("out").textContent = "Paid";
+};
+</script>
+</body>
+</html>

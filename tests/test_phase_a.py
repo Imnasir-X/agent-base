@@ -57,11 +57,18 @@ class TestApproverUnit(unittest.TestCase):
     def test_lookup_env_and_file(self):
         path = config.ROOT / "secrets.json"
         self.assertFalse(path.exists())
-        path.write_text('{"FILEKEY": "from-file-only"}', encoding="utf-8")
+        path.write_text(
+            '{"FILEKEY": {"value": "from-file-only", "domains": ["files.test"]}}',
+            encoding="utf-8",
+        )
         try:
-            with patch.dict(os.environ, {"VAULT_GATE": SECRET}):
-                self.assertEqual(lookup("GATE"), SECRET)
-            self.assertEqual(lookup("FILEKEY"), "from-file-only")
+            with patch.dict(os.environ, {"VAULT_GATE": SECRET, "VAULT_GATE_DOMAINS": "127.0.0.1"}):
+                self.assertEqual(lookup("GATE", "127.0.0.1"), SECRET)
+                with self.assertRaises(KeyError):
+                    lookup("GATE", "evil.test")
+            self.assertEqual(lookup("FILEKEY", "files.test"), "from-file-only")
+            with self.assertRaises(KeyError):
+                lookup("FILEKEY", "127.0.0.1")
         finally:
             path.unlink(missing_ok=True)
 
@@ -158,7 +165,7 @@ class TestBrowserPhaseA(unittest.TestCase):
             return [Action("done", {})]
 
         state = TaskState("Fill the password", "Fill the password", 0, [], [], None, "stub", None)
-        with patch.dict(os.environ, {"VAULT_GATE": SECRET}):
+        with patch.dict(os.environ, {"VAULT_GATE": SECRET, "VAULT_GATE_DOMAINS": "127.0.0.1"}):
             run_episode(page, state, scripted, None, 2)
         self.assertEqual(page.locator("#pw").input_value(), SECRET)
         self.assertNotIn(SECRET, log.read_text(encoding="utf-8"))
@@ -173,7 +180,7 @@ class TestBrowserPhaseA(unittest.TestCase):
         raw = Image.open(later.raw_screenshot_path).convert("RGB")
         point = (box["x"] + box["w"] // 2, box["y"] + box["h"] // 2)
         self.assertEqual(som.getpixel(point), (0, 0, 0))
-        self.assertNotEqual(raw.getpixel(point), (0, 0, 0))
+        self.assertEqual(raw.getpixel(point), (0, 0, 0))
         self._secret_absent(started)
 
     def _secret_absent(self, started_ms):
@@ -230,13 +237,14 @@ class TestBrowserPhaseA(unittest.TestCase):
 
         state = TaskState("Enter the code", "Enter the code", 0, [], [], None, "stub", None)
         with patch.dict(os.environ, {"HARNESS_ANSWER_FILE": str(reply)}):
-            run_episode(page, state, scripted, None, 4, answer)
+            episode = run_episode(page, state, scripted, None, 4, answer)
         self.assertEqual(page.locator("#out").inner_text(), "Unlocked")
         self.assertIn("What is the code?", (config.LOG_DIR / "question.txt").read_text(encoding="utf-8"))
+        self.assertNotIn("4419", log.read_text(encoding="utf-8"))
+        self.assertNotIn("4419", json.dumps(episode["actions"]))
         rows = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
         first = next(row for row in rows if row["kind"] == "intent")
         self.assertEqual(first["actions"][0]["type"], "ask_user")
-        self.assertNotIn("4419", json.dumps(first))
         reply.unlink(missing_ok=True)
 
     def test_ask_user_without_answerer_stops(self):

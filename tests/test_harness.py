@@ -45,17 +45,20 @@ class TestShape(unittest.TestCase):
             if isinstance(node, ast.ImportFrom):
                 self.assertNotIn("playwright", node.module or "")
                 self.assertNotIn("openai", node.module or "")
+                self.assertNotIn("hurdle", node.module or "")
             if isinstance(node, ast.Import):
                 names = " ".join(alias.name for alias in node.names)
                 self.assertNotIn("playwright", names)
                 self.assertNotIn("openai", names)
+                self.assertNotIn("hurdle", names)
 
     def test_files_stay_short(self):
         for name in [
             "config.py", "main.py", "agent.py", "perception.py", "actions.py", "state.py",
             "planner.py", "logger.py", "reward.py", "model_stub.py", "model_real.py", "model_gemini.py",
             "eval_checks.py", "eval_runner.py", "replay.py",
-            "session.py", "login_once.py", "vault.py", "approver.py", "ask_user.py",
+            "session.py", "login_once.py", "vault.py", "approver.py", "ask_user.py", "guard.py",
+            "behavior.py", "hurdle.py",
         ]:
             self.assertLessEqual(_lines(ROOT / name), 150, name)
 
