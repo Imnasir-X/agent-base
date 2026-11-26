@@ -25,11 +25,16 @@ CASES = Path(__file__).resolve().parent / "core_cases.json"
 
 def _state(data):
     data = data or {}
-    return TaskState(
+    state = TaskState(
         data.get("task", ""), data.get("subgoal", ""), int(data.get("step") or 0),
         list(data.get("completed") or []), list(data.get("failures") or []),
         data.get("pending_approval"), data.get("model_name", "oracle"), data.get("last_failure"),
     )
+    if "plan" in data:
+        state.plan = data["plan"]
+    if "notes" in data:
+        state.notes = dict(data["notes"])
+    return state
 
 
 def _obs(case):
@@ -77,6 +82,9 @@ def run_one(case):
         return logger.scrub(case.get("value"))
     if op == "hurdle.score":
         return hurdle_score(case.get("rows") or [], bool(case.get("code_ok")), case.get("policy") or "record")
+    if op == "plan.apply":
+        from plan_report import apply_case
+        return apply_case(case)
     raise KeyError(op)
 
 

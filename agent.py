@@ -1,7 +1,8 @@
 """The loop. It does not import Playwright, a model SDK, or the filesystem.
 
 decide, observe, execute_turn, log, advance, planner, and reward are the only calls.
-approver is None for ordinary actions. Targets marked requires_approval still pause.
+A plan adds scripted actions and a per-subgoal check. approver is None for
+ordinary actions. Targets marked requires_approval still pause.
 """
 import time
 import uuid
@@ -10,6 +11,7 @@ from actions import execute_turn
 import guard
 from logger import log_turn_end, log_turn_start, remember, scrub
 from perception import observe
+from plan_run import capture, executable, mark_url, scripted_actions, settle
 from planner import next_subgoal
 from reward import reward as score_episode
 from state import advance
@@ -74,10 +76,18 @@ def run_episode(page, state, decide, approver=None, max_steps: int = 5, answerer
             log_turn_end(turn_id, state.step, [], int((time.perf_counter() - started) * 1000), 0, stop)
             break
         state.subgoal = next_subgoal(state, obs)
+        if state.plan:
+            mark_url(state, page)
         actions = []
         error = None
+        scripted = scripted_actions(state) if state.plan else None
         try:
-            actions = list(decide(obs, state))
+            proposed = scripted if scripted is not None else list(decide(obs, state))
+            if state.plan:
+                capture(state, proposed)
+                actions = executable(state, proposed)
+            else:
+                actions = proposed
         except Exception as exc:
             error = "model:" + scrub(str(exc))[:300]
         turn_id = uuid.uuid4().hex[:12]
@@ -104,9 +114,16 @@ def run_episode(page, state, decide, approver=None, max_steps: int = 5, answerer
         advance(state, actions, results)
         if (error or "").startswith("model:") or error == "waiting_user":
             break
-        if _finished(actions, results):
+        if state.plan:
+            if settle(state, page):
+                break
+        elif _finished(actions, results):
             break
-    episode = {"success": False, "num_turns": turns, "latency_ms": latency_total, "actions": scrub(taken)}
+    planned = bool(state.plan and state.plan.get("status") == "done")
+    episode = {"success": planned, "num_turns": turns, "latency_ms": latency_total, "actions": scrub(taken)}
+    if state.plan:
+        episode["subgoals"] = list(state.plan.get("results") or [])
+        episode["replans"] = state.plan.get("replans") or 0
     episode["reward"] = score_episode(episode)
     return episode
 

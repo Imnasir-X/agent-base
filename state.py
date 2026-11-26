@@ -15,6 +15,8 @@ class TaskState:
     pending_approval: list | None
     model_name: str
     last_failure: dict | None
+    plan: dict | None = None
+    notes: dict | None = None
 
 
 def advance(state: TaskState, actions: list[Action], results: list[ActionResult]) -> None:

@@ -1,6 +1,6 @@
 {
   "suite": "agent-base-core",
-  "version": 2,
+  "version": 3,
   "cases": [
     {"id": "guard.local_is_allowed", "op": "guard.blocked", "env": {"HARNESS_MAX_STEPS": "8", "HARNESS_ALLOW_DOMAINS": "127.0.0.1,localhost"}, "url": "http://127.0.0.1:8765/home.html", "state": {"step": 0}, "expect": null},
     {"id": "guard.localhost_is_allowed", "op": "guard.blocked", "env": {"HARNESS_MAX_STEPS": "8", "HARNESS_ALLOW_DOMAINS": "127.0.0.1,localhost"}, "url": "http://localhost/a", "state": {"step": 0}, "expect": null},
@@ -92,6 +92,18 @@
     {"id": "hurdle.waiting_user_is_not_a_block", "op": "hurdle.score", "policy": "attempt_fails", "code_ok": true, "rows": [{"kind": "outcome", "step": 0, "error": "waiting_user"}], "expect": {"passed": true, "code_ok": true, "policy": "attempt_fails", "blocked_attempts": 0}},
     {"id": "hurdle.unknown_policy_only_records", "op": "hurdle.score", "policy": "hybrid", "code_ok": true, "rows": [{"kind": "outcome", "step": 0, "error": "not_approved"}], "expect": {"passed": true, "code_ok": true, "policy": "record", "blocked_attempts": 1}},
     {"id": "hurdle.intent_line_is_not_an_attempt", "op": "hurdle.score", "policy": "attempt_fails", "code_ok": true, "rows": [{"kind": "intent", "error": "not_approved"}, {"kind": "outcome", "step": 0, "error": null}], "expect": {"passed": true, "code_ok": true, "policy": "attempt_fails", "blocked_attempts": 0}},
-    {"id": "hurdle.empty_log_passes_a_clean_check", "op": "hurdle.score", "policy": "attempt_fails", "code_ok": true, "rows": [], "expect": {"passed": true, "code_ok": true, "policy": "attempt_fails", "blocked_attempts": 0}}
+    {"id": "hurdle.empty_log_passes_a_clean_check", "op": "hurdle.score", "policy": "attempt_fails", "code_ok": true, "rows": [], "expect": {"passed": true, "code_ok": true, "policy": "attempt_fails", "blocked_attempts": 0}},
+
+    {"id": "planner.a_plan_survives_the_first_success", "op": "planner.next_subgoal", "has_observation": true, "state": {"task": "Create user", "completed": [{"type": "click_element"}], "plan": {"status": "run", "index": 0, "phase": "act", "spec": {"subgoals": [{"text": "Fill email"}]}}}, "expect": "Fill email"},
+    {"id": "state.a_plan_does_not_finish_on_the_first_success", "op": "state.advance", "state": {"task": "Create user", "subgoal": "Fill email", "step": 0, "plan": {"status": "run", "index": 0, "phase": "act", "spec": {"subgoals": [{"text": "Fill email"}]}}}, "actions": [{"type": "type", "params": {"id": 1, "text": "Ada"}}], "results": [{"success": true}], "expect": {"step": 1, "subgoal": "Fill email", "completed": [{"type": "type", "params": {"id": 1, "text": "Ada"}, "success": true, "reason": ""}], "failures": [], "last_failure": null}},
+    {"id": "plan.empty_is_rejected", "op": "plan.apply", "event": "validate", "plan": {}, "expect": ["subgoals"]},
+    {"id": "plan.unknown_check_is_rejected", "op": "plan.apply", "event": "validate", "plan": {"subgoals": [{"text": "Open", "check": {"type": "guess"}}]}, "expect": ["0.check"]},
+    {"id": "plan.deterministic_needs_an_action", "op": "plan.apply", "event": "validate", "plan": {"subgoals": [{"text": "Open", "deterministic": true, "check": {"type": "url_contains", "part": "users.html"}}]}, "expect": ["0.action"]},
+    {"id": "plan.commit_needs_a_review", "op": "plan.apply", "event": "validate", "plan": {"subgoals": [{"text": "Save", "commit": true, "check": {"type": "text_visible", "text": "ok"}}]}, "expect": ["0.review"]},
+    {"id": "plan.sample_shape_is_accepted", "op": "plan.apply", "event": "validate", "plan": {"subgoals": [{"text": "Save", "commit": true, "review": {"type": "value_equals", "id": "email", "value": "a@b.c"}, "check": {"type": "text_visible", "text": "a@b.c"}}]}, "expect": []},
+    {"id": "plan.unresolved_note_is_refused", "op": "plan.apply", "event": "resolve", "text": "send {notes.email}", "notes": {}, "expect": null},
+    {"id": "plan.accepted_note_resolves", "op": "plan.apply", "event": "resolve", "text": "send {notes.email}", "notes": {"email": "ada@example.com"}, "expect": "send ada@example.com"},
+    {"id": "plan.pass_stores_the_accepted_value", "op": "plan.apply", "event": "pass", "check": {"type": "value_equals", "id": "email", "value": "ada@example.com"}, "state": {"notes": {}, "plan": {"status": "run", "index": 0, "phase": "act", "replans": 0, "results": [], "spec": {"subgoals": [{"text": "Fill email", "check": {"type": "value_equals"}}, {"text": "Save user", "commit": true}]}}}, "expect": {"status": "run", "index": 1, "phase": "review", "replans": 0, "subgoal": "Review: Save user", "notes": {"email": "ada@example.com"}}},
+    {"id": "plan.one_replan_then_the_episode_stops", "op": "plan.apply", "event": "fail", "again": true, "reason": "check", "state": {"plan": {"status": "run", "index": 0, "phase": "act", "replans": 0, "results": [], "spec": {"subgoals": [{"text": "Fill email"}]}}}, "expect": {"status": "failed", "index": 0, "phase": "act", "replans": 1, "subgoal": "done", "notes": {}}}
   ]
 }

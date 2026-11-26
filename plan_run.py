@@ -1,0 +1,97 @@
+"""Execute one planned subgoal against the page. No Playwright import.
+
+Deterministic subgoals return their action and the loop does not call decide.
+A commit subgoal spends one read-only turn first. Clicks on that turn are dropped.
+"""
+from actions import Action
+from eval_checks import run_check
+from plan import current, on_fail, on_pass, resolve
+
+_KEEP = {"wait", "scroll"}
+
+
+def scripted_actions(state):
+    sub = current(state)
+    if not sub or not sub.get("deterministic") or state.plan.get("phase") == "review":
+        return None
+    action = sub["action"]
+    return [Action(action["type"], dict(action.get("params") or {}))]
+
+
+def capture(state, actions) -> None:
+    if not getattr(state, "plan", None):
+        return
+    for action in actions:
+        if action.type == "say":
+            state.plan["statement"] = str(action.params.get("text") or "")
+
+
+def executable(state, actions):
+    sub = current(state)
+    if not sub or not sub.get("commit") or state.plan.get("phase") != "review":
+        return actions
+    return [action for action in actions if action.type in _KEEP]
+
+
+def mark_url(state, page) -> None:
+    plan = getattr(state, "plan", None)
+    if not plan or plan.get("status") != "run":
+        return
+    key = (plan.get("index"), plan.get("phase"), plan.get("replans"))
+    if plan.get("marked") != key:
+        plan["url_at_start"] = page.url
+        plan["marked"] = key
+
+
+def _mapped(check, state):
+    if not isinstance(check, dict):
+        return None
+    fields = {}
+    for key, value in check.items():
+        if not isinstance(value, str):
+            fields[key] = value
+            continue
+        resolved = resolve(value, state.notes)
+        if resolved is None:
+            return None
+        fields[key] = resolved
+    kind = fields.get("type")
+    if kind == "value_equals":
+        selector = fields.get("selector") or ("#" + str(fields.get("id") or ""))
+        return "input_value", {"selector": selector, "value": fields.get("value", "")}
+    if kind in ("url_changed", "enabled"):
+        return kind, fields
+    return kind, {key: value for key, value in fields.items() if key != "type"}
+
+
+def run_spec(page, check, state) -> bool:
+    mapped = _mapped(check, state)
+    if mapped is None:
+        return False
+    name, args = mapped
+    if name == "url_changed":
+        start = (state.plan or {}).get("url_at_start") or ""
+        return bool(start) and page.url != start
+    if name == "enabled":
+        selector = args.get("selector") or ("#" + str(args.get("id") or ""))
+        loc = page.locator(selector)
+        return loc.count() > 0 and loc.first.is_enabled()
+    if name not in ("url_contains", "input_value", "text_visible", "checked", "select_value", "approval_held"):
+        return False
+    return bool(run_check(page, name, args, state))
+
+
+def settle(state, page) -> bool:
+    """True means the episode should stop."""
+    sub = current(state)
+    if sub is None:
+        return True
+    if state.plan.get("phase") == "review":
+        if not run_spec(page, sub.get("review"), state):
+            return on_fail(state, "review") == "stop"
+        if sub.get("precondition") and not run_spec(page, sub.get("precondition"), state):
+            return on_fail(state, "precondition") == "stop"
+        return on_pass(state, sub.get("review")) == "stop"
+    if run_spec(page, sub.get("check"), state):
+        return on_pass(state, sub.get("check")) == "stop"
+    return on_fail(state, "check") == "stop"

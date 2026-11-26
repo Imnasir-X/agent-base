@@ -1,0 +1,18 @@
+{
+  "goal": "Create user from Excel row 3",
+  "subgoals": [
+    {"text": "Open Users page", "deterministic": true,
+     "action": {"type": "goto", "params": {"url": "{base}/users.html"}},
+     "check": {"type": "url_contains", "part": "users.html"}},
+    {"text": "Fill name and email from row 3",
+     "check": {"type": "value_equals", "id": "name", "value": "{row.name}"}},
+    {"text": "Choose role Admin",
+     "check": {"type": "value_equals", "id": "role", "value": "{row.role}"}},
+    {"text": "Review form before saving",
+     "check": {"type": "value_equals", "id": "email", "value": "{row.email}"}},
+    {"text": "Save user", "commit": true,
+     "review": {"type": "value_equals", "id": "email", "value": "{row.email}"},
+     "precondition": {"type": "enabled", "id": "save"},
+     "check": {"type": "text_visible", "text": "{row.email}"}}
+  ]
+}

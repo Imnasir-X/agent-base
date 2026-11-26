@@ -113,3 +113,17 @@ This takes one rule from Together AI's Hurdle and scores it here. The npm librar
 The default policy is `record`. The attempt is counted and the page check still decides the task. `checkout_gate` stays a pass when the commit was held and the order was not placed. A task that sets `hurdle` to `attempt_fails` fails when the log contains one of those attempts, even if the page check passed. `finish` writes a `verdict` line only for that policy. The 28-task list does not set it.
 
 `core_cases.json` is version 2. The new cases lock that split: a held commit still passes under `record`, and the same log fails under `attempt_fails`.
+
+## 2026-11-26 — Plan once, then one subgoal at a time
+
+Tasks with no plan are unchanged: the subgoal is the whole task, and the first success still means done. The 28-task list does not include `users.html`. No model was called to write or run a plan.
+
+When `state.plan` is set, the cursor walks the subgoals. A deterministic subgoal runs its `action` and does not call `decide`. Any other subgoal gets one `decide` call. A commit subgoal spends a read-only turn first: clicks on that turn are not executed, and the `review` check plus the precondition have to pass before the commit turn. The approver still sees the commit itself.
+
+A failed check retries that same subgoal once and passes `last_failure` in. The page is not reloaded. A second failure ends the episode. `notes` receives a field only after `value_equals` or `input_value` passes. `{row.field}` is the spreadsheet value bound at the start. `{notes.field}` does not resolve before that.
+
+`text_visible` reads text on the page, not an input's value, so the pre-save checks use `value_equals`. The hand-written template is `plans/create_user.json`. `planner_prompt.py` holds the prompt that would ask a model for a plan in that shape. The loop does not send it.
+
+`core_cases.json` is version 3. The new cases lock that one successful action does not finish a plan, that a commit without a review is rejected, and that the second failed check stops the episode. `measure` reports per-subgoal pass rate, fixture pass rate, and fixture stdev. A subgoal a run never reached counts as a miss.
+
+The Save button on `users.html` stayed disabled because the page used `var name` for the name field. In a browser that assigns `window.name`, so the element was stringified and the refresh always saw a missing value. `select` is not the cause: Playwright's `select_option` fires `input` and then `change`, and a page that listens for those events enables its button. The fixture now names the elements `nameBox`, `emailBox`, `roleBox`, and `saveButton`.

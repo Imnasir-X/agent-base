@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Users</title></head>
+<body>
+<h1>Users</h1>
+<form id="user" oninput="refresh()" onchange="refresh()">
+  <label for="name">Name</label><input id="name" oninput="refresh()">
+  <label for="email">Email</label><input id="email" oninput="refresh()">
+  <label for="role">Role</label>
+  <select id="role" onchange="refresh()"><option value="">Choose</option><option value="Admin">Admin</option></select>
+  <button id="save" type="button" disabled>Save</button>
+</form>
+<p id="out"></p>
+<table><tbody id="rows"></tbody></table>
+<script>
+var nameBox = document.getElementById("name");
+var emailBox = document.getElementById("email");
+var roleBox = document.getElementById("role");
+var saveButton = document.getElementById("save");
+function refresh() {
+  saveButton.disabled = !(nameBox.value && emailBox.value && roleBox.value);
+}
+saveButton.onclick = function () {
+  document.getElementById("out").textContent = emailBox.value;
+  document.getElementById("rows").innerHTML = "<tr><td>" + nameBox.value + "</td><td>" + emailBox.value + "</td><td>" + roleBox.value + "</td></tr>";
+};
+</script>
+</body>
+</html>
