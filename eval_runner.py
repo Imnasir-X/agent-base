@@ -11,7 +11,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 import config
 from agent import run_episode
-from approver import approve
+from eval_grant import approve_task
 from eval_checks import finish
 from main import load_decide
 from reward import reward
@@ -70,7 +70,7 @@ def _one(context, port, task, run_i, decide, blocked) -> dict:
     page.goto(f"http://127.0.0.1:{port}/{task['start']}")
     label = config.GEMINI_MODEL if config.MODEL == "gemini" else f"{config.MODEL}:{config.STUB_MODE}"
     state = TaskState(task["goal"], task["goal"], 0, [], [], None, label, None)
-    episode = run_episode(page, state, decide, approve, int(task.get("max_steps") or config.MAX_STEPS))
+    episode = run_episode(page, state, decide, lambda a, o: approve_task(task, a, o), int(task.get("max_steps") or config.MAX_STEPS))
     ok = finish(page, task, state)
     episode["success"] = bool(ok)
     episode["reward"] = reward(episode)

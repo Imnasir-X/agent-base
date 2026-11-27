@@ -132,7 +132,8 @@ def observe(page) -> Observation:
     except Exception:
         pass
     page.wait_for_timeout(config.SETTLE_MS)
-    elements = page.evaluate(STAMP_JS)
+    from element_context import annotate
+    elements = annotate(page, page.evaluate(STAMP_JS))
     stamp = time.time_ns()
     raw_path = config.RUN_DIR / f"{stamp}_raw.png"
     som_path = config.RUN_DIR / f"{stamp}_som.png"

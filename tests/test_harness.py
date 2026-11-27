@@ -59,7 +59,8 @@ class TestShape(unittest.TestCase):
             "eval_checks.py", "eval_runner.py", "replay.py",
             "session.py", "login_once.py", "vault.py", "approver.py", "ask_user.py", "guard.py",
             "behavior.py", "hurdle.py", "plan.py", "plan_run.py", "plan_report.py",
-            "planner_prompt.py", "plan_stability.py",
+            "planner_prompt.py", "plan_stability.py", "plan_gate.py",
+            "element_context.py", "eval_grant.py",
         ]:
             self.assertLessEqual(_lines(ROOT / name), 150, name)
 

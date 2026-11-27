@@ -11,6 +11,7 @@ from actions import execute_turn
 import guard
 from logger import log_turn_end, log_turn_start, remember, scrub
 from perception import observe
+from plan_gate import prepare
 from plan_run import capture, executable, mark_url, scripted_actions, settle
 from planner import next_subgoal
 from reward import reward as score_episode
@@ -78,6 +79,7 @@ def run_episode(page, state, decide, approver=None, max_steps: int = 5, answerer
         state.subgoal = next_subgoal(state, obs)
         if state.plan:
             mark_url(state, page)
+            prepare(state, page)
         actions = []
         error = None
         scripted = scripted_actions(state) if state.plan else None

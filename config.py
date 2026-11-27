@@ -20,6 +20,8 @@ SESSION_DIR.mkdir(exist_ok=True)
 MODEL = os.environ.get("HARNESS_MODEL", "stub")  # "stub" | "real" | "gemini"
 STUB_MODE = os.environ.get("HARNESS_STUB_MODE", "heuristic")  # "heuristic" | "random" | "done"
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.6-flash")
+# Duplicate-label hints in the model element list. Set 0 for the A/B without them.
+SHOW_CONTEXT = os.environ.get("HARNESS_CONTEXT", "1") != "0"
 
 SETTLE_MS = 500
 MAX_STEPS = 5

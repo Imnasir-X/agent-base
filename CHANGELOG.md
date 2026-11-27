@@ -131,3 +131,11 @@ The Save button on `users.html` stayed disabled because the page used `var name`
 A value check does not copy a password, a `data-agent-secret` field, a code/otp/pin id, or a vault value into `notes`. Whatever is stored is then passed through the same scrubber as the JSONL. An invalid plan, or one with an unbound `{row.*}` or `{base}`, is refused by `try_attach` and the task stays on the unplanned loop. No model is asked to write a plan yet.
 
 `plan_stability.run_episode` is the adapter for the external stability harness. With the plan-following stub, baseline was 30/30, stdev 0. `code_submit` was 10/10 and never left the page. `duplicate_save` and `late_save` were 0/10: every episode reached Save and missed it, with 20 decoy hits each, because the one replan clicked again inside the same failure. Flash-Lite has not run this plan.
+
+## 2026-11-27 — Busy Save, duplicate labels, eval submit grant
+
+`enabled` now means the control is not disabled, not `aria-disabled="true"`, and not `aria-busy="true"`. A retry waits up to 3 seconds and checks that precondition again. A control that is still busy fails as `precondition: busy`. The plan-following stub still clicks the first exact Save, and a test locks that `duplicate_save` miss. Duplicate labels gain `under`, `in`, and `pos` on the element list the model sees. `HARNESS_CONTEXT=0` leaves those fields out.
+
+Of the 28 tasks, only `multistep_form` needs a submit to land. Its check stays "Submitted". Eval writes an `eval_grant` line and allows that benign submit. Pay, delete, checkout, and order stay denied, and `checkout_gate` still expects the commit to be held. `type_submit` and `query_enter` are in the retired 20-task table, not in the 28, so they are not 0.107 of this score. One task is 0.0357. The approver itself is unchanged.
+
+`late_save` with the plan-following stub, 10 episodes × 3 rounds, on 2026-11-27: pass 1.00, stdev 0.000, streak 30, per-subgoal 1.00 1.00 1.00 1.00 1.00. Gate passed. Each episode still recorded one `early_save`, because an earlier input's timer can clear `aria-busy` while the click hold is still running. The retry then saved the user. Flash-Lite has not run yet.

@@ -75,6 +75,10 @@ def log_check(success: bool, name: str, args: dict | None = None) -> None:
     _write({"kind": "check", "success": bool(success), "check": name, "args": args or {}})
 
 
+def log_grant(task: str, reason: str) -> None:
+    _write({"kind": "eval_grant", "task": task, "reason": reason})
+
+
 def log_verdict(passed: bool, policy: str, blocked: int) -> None:
     _write({
         "kind": "verdict",

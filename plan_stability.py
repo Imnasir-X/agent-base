@@ -93,7 +93,7 @@ def _flags(results) -> list[bool]:
     return [last[text] for text in order]
 
 
-def run_episode(url, plan_path, init_script, seed):
+def run_episode(url, plan_path, init_script, seed, decide=None):
     """One planned episode. url is unused; the fixture server is the page."""
     del url
     http = _server()
@@ -111,7 +111,8 @@ def run_episode(url, plan_path, init_script, seed):
         page.goto(f"{base}/home.html")
         state = TaskState(spec["goal"], spec["goal"], 0, [], [], None, "plan-stub", None)
         attach(state, spec, slots_for({"name": "Ada", "email": "ada@example.com", "role": "Admin"}, base))
-        loop(page, state, _decide(state.plan["spec"]), approve, 8)
+        policy = decide if decide is not None else _decide(state.plan["spec"])
+        loop(page, state, policy, approve, 8)
         try:
             hits = list(page.evaluate("window.__decoy_hits || []"))
         except Exception:
@@ -126,3 +127,11 @@ def run_episode(url, plan_path, init_script, seed):
         )
     finally:
         ctx.close()
+
+
+def run_gemini(url, plan_path, init_script, seed):
+    """Flash-Lite decide(). The stub entry point stays the negative control."""
+    config.MODEL = "gemini"
+    config.GEMINI_MODEL = "gemini-3.5-flash-lite"
+    from model_gemini import decide
+    return run_episode(url, plan_path, init_script, seed, decide)

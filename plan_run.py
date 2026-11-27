@@ -28,7 +28,12 @@ def capture(state, actions) -> None:
 
 def executable(state, actions):
     sub = current(state)
-    if not sub or not sub.get("commit") or state.plan.get("phase") != "review":
+    if not sub:
+        return actions
+    phase = state.plan.get("phase")
+    if state.plan.get("hold") and phase == "act":
+        return [action for action in actions if action.type in _KEEP]
+    if not sub.get("commit") or phase != "review":
         return actions
     return [action for action in actions if action.type in _KEEP]
 
@@ -73,9 +78,8 @@ def run_spec(page, check, state) -> bool:
         start = (state.plan or {}).get("url_at_start") or ""
         return bool(start) and page.url != start
     if name == "enabled":
-        selector = args.get("selector") or ("#" + str(args.get("id") or ""))
-        loc = page.locator(selector)
-        return loc.count() > 0 and loc.first.is_enabled()
+        from plan_gate import enabled
+        return enabled(page, args)
     if name not in ("url_contains", "input_value", "text_visible", "checked", "select_value", "approval_held"):
         return False
     return bool(run_check(page, name, args, state))
@@ -127,9 +131,14 @@ def settle(state, page) -> bool:
     if state.plan.get("phase") == "review":
         if not run_spec(page, sub.get("review"), state):
             return on_fail(state, "review") == "stop"
-        if sub.get("precondition") and not run_spec(page, sub.get("precondition"), state):
-            return on_fail(state, "precondition") == "stop"
+        pre = sub.get("precondition")
+        if pre and not run_spec(page, pre, state):
+            why = state.plan.pop("hold", None) or "precondition"
+            return on_fail(state, why) == "stop"
         return _keep(state, sub.get("review"), page) == "stop"
+    hold = state.plan.pop("hold", None)
+    if hold:
+        return on_fail(state, hold) == "stop"
     if run_spec(page, sub.get("check"), state):
         return _keep(state, sub.get("check"), page) == "stop"
     return on_fail(state, "check") == "stop"

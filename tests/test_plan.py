@@ -92,6 +92,56 @@ class TestPlanContract(unittest.TestCase):
         self.assertTrue(try_attach(state, raw, {"row.name": "Ada"}))
         self.assertEqual(state.subgoal, "A")
 
+    def test_prompt_can_hide_duplicate_place(self):
+        from model_gemini import _prompt
+        obs = type("Obs", (), {"elements": [
+            {"id": 1, "tag": "button", "text": "Save", "under": "Draft copy", "in": "user", "pos": "1 of 2"},
+            {"id": 2, "tag": "button", "text": "Save", "under": "Users", "in": "user", "pos": "2 of 2"},
+        ]})()
+        state = TaskState("t", "Save user", 0, [], [], None, "s", None)
+        config.SHOW_CONTEXT = True
+        shown = _prompt(obs, state)
+        self.assertIn("Draft copy", shown)
+        self.assertIn("1 of 2", shown)
+        config.SHOW_CONTEXT = False
+        hidden = _prompt(obs, state)
+        self.assertNotIn("Draft copy", hidden)
+        self.assertNotIn("1 of 2", hidden)
+        config.SHOW_CONTEXT = True
+
+    def test_stub_picks_the_first_save(self):
+        from plan_stability import _decide
+        obs = type("Obs", (), {"elements": [
+            {"id": 7, "tag": "button", "text": "Save"},
+            {"id": 8, "tag": "button", "text": "Save"},
+        ]})()
+        state = TaskState("t", "Save user", 0, [], [], None, "s", None)
+        action = _decide({"subgoals": []})(obs, state)[0]
+        self.assertEqual(action.params["id"], 7)
+
+    def test_eval_grants_only_an_opted_in_benign_submit(self):
+        from eval_grant import approve_task
+        path = config.LOG_DIR / "eval_grant_test.jsonl"
+        if path.exists():
+            path.unlink()
+        config.LOG_PATH = path
+        submit = [Action("click_element", {"id": 1})]
+        plain = type("Obs", (), {"elements": [{
+            "id": 1, "tag": "button", "text": "Submit", "submit": True, "context": "", "form_action": "",
+        }]})()
+        task = {"name": "multistep_form", "approve": "benign_submit"}
+        self.assertTrue(approve_task(task, submit, plain))
+        self.assertIn("eval_grant", path.read_text(encoding="utf-8"))
+        pay = type("Obs", (), {"elements": [{
+            "id": 1, "tag": "button", "text": "Pay", "submit": True, "context": "", "form_action": "",
+        }]})()
+        self.assertFalse(approve_task(task, submit, pay))
+        other = {"name": "checkout_gate"}
+        checkout = type("Obs", (), {"elements": [{
+            "id": 1, "tag": "button", "text": "Checkout", "context": "", "form_action": "",
+        }]})()
+        self.assertFalse(approve_task(other, [Action("click_element", {"id": 1})], checkout))
+
 
 class TestPlanRun(unittest.TestCase):
     @classmethod
@@ -220,6 +270,118 @@ class TestPlanRun(unittest.TestCase):
         self.assertEqual(calls, ["Fill name and email from row 3", "Fill name and email from row 3"])
         self.assertEqual(page.locator("#out").inner_text(), "")
         self.assertEqual(outs, [])
+
+    def _save_plan(self, html, decide):
+        page = self.browser.new_context().new_page()
+        self.addCleanup(page.context.close)
+        page.set_content(html)
+        path = config.LOG_DIR / "plan_busy.jsonl"
+        if path.exists():
+            path.unlink()
+        config.LOG_PATH = path
+        spec = {"goal": "Save", "subgoals": [{
+            "text": "Save user", "commit": True,
+            "review": {"type": "text_visible", "text": "Ready"},
+            "precondition": {"type": "enabled", "id": "save"},
+            "check": {"type": "text_visible", "text": "Saved"},
+        }]}
+        state = TaskState("Save", "Save", 0, [], [], None, "s", None)
+        attach(state, spec, {})
+        episode = run_episode(page, state, decide, approve, 6)
+        return page, state, episode
+
+    def test_busy_save_is_not_a_check_failure(self):
+        html = "<p>Ready</p><button id='save' type='button' aria-busy='true'>Save</button>"
+
+        def decide(obs, state):
+            if str(state.subgoal).startswith("Review:"):
+                return [Action("say", {"text": "look"})]
+            button = _find(obs, lambda el: el["tag"] == "button")
+            return [Action("click_element", {"id": button})]
+
+        _page, state, episode = self._save_plan(html, decide)
+        reasons = [row.get("reason") for row in state.plan["results"] if not row.get("passed")]
+        self.assertFalse(episode["success"])
+        self.assertEqual(reasons, ["precondition: busy", "precondition: busy"])
+        self.assertNotIn("check", reasons)
+
+    def test_retry_waits_until_save_is_free(self):
+        html = (
+            "<p>Ready</p><p id='out'></p><button id='save' type='button'>Save</button><script>"
+            "var save=document.getElementById('save'); save.setAttribute('aria-busy','true');"
+            "setTimeout(function(){ save.removeAttribute('aria-busy'); }, 3500);"
+            "save.onclick=function(){ document.getElementById('out').textContent='Saved'; };"
+            "</script>"
+        )
+
+        def decide(obs, state):
+            if str(state.subgoal).startswith("Review:"):
+                return [Action("say", {"text": "look"})]
+            button = _find(obs, lambda el: el["tag"] == "button")
+            return [Action("click_element", {"id": button})]
+
+        page, state, episode = self._save_plan(html, decide)
+        self.assertTrue(episode["success"], state.plan["results"])
+        self.assertEqual(state.plan["replans"], 1)
+        self.assertEqual(page.locator("#out").inner_text(), "Saved")
+
+    def test_duplicate_labels_carry_place(self):
+        from perception import observe
+        page = self.browser.new_context().new_page()
+        self.addCleanup(page.context.close)
+        page.set_content(
+            "<h1>Users</h1><form id='user'><div><h3>Draft copy</h3>"
+            "<button type='button'>Save</button></div>"
+            "<button id='save' type='button'>Save</button>"
+            "<button type='button'>Cancel</button></form>"
+        )
+        saves = [el for el in observe(page).elements if el.get("text") == "Save"]
+        cancel = next(el for el in observe(page).elements if el.get("text") == "Cancel")
+        self.assertEqual([el.get("pos") for el in saves], ["1 of 2", "2 of 2"])
+        self.assertEqual(saves[0].get("under"), "Draft copy")
+        self.assertEqual(saves[1].get("under"), "Users")
+        self.assertEqual(saves[0].get("in"), "user")
+        self.assertNotIn("pos", cancel)
+
+    def test_stub_fails_duplicate_save(self):
+        from plan_stability import _decide
+        script = """
+        window.__decoy_hits = window.__decoy_hits || [];
+        document.addEventListener('DOMContentLoaded', () => {
+          const real = [...document.querySelectorAll('button')]
+            .find(b => (b.innerText || '').trim() === 'Save');
+          if (!real) return;
+          const box = document.createElement('div');
+          box.innerHTML = '<h3>Draft copy</h3>';
+          const decoy = document.createElement('button');
+          decoy.type = 'button';
+          decoy.textContent = 'Save';
+          decoy.addEventListener('click', e => {
+            e.preventDefault(); e.stopPropagation();
+            window.__decoy_hits.push('dup_save');
+          }, true);
+          box.appendChild(decoy);
+          real.parentNode.insertBefore(box, real);
+        });
+        """
+        ctx = self.browser.new_context(viewport=config.VIEWPORT, device_scale_factor=1)
+        self.addCleanup(ctx.close)
+        ctx.add_init_script(script)
+        page = ctx.new_page()
+        page.goto(f"http://127.0.0.1:{self.port}/home.html")
+        path = config.LOG_DIR / "plan_dup_stub.jsonl"
+        if path.exists():
+            path.unlink()
+        config.LOG_PATH = path
+        state = TaskState(TEMPLATE["goal"], TEMPLATE["goal"], 0, [], [], None, "plan-stub", None)
+        attach(state, TEMPLATE, slots_for(ROW, f"http://127.0.0.1:{self.port}"))
+        episode = run_episode(page, state, _decide(state.plan["spec"]), approve, 8)
+        hits = page.evaluate("window.__decoy_hits || []")
+        self.assertFalse(episode["success"])
+        self.assertEqual(state.plan["status"], "failed")
+        self.assertIn("dup_save", hits)
+        self.assertEqual(state.plan["results"][-1]["text"], "Save user")
+        self.assertFalse(state.plan["results"][-1]["passed"])
 
 
 if __name__ == "__main__":

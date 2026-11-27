@@ -29,21 +29,29 @@ def _prompt(observation, state) -> str:
         "last_3_actions": state.completed[-3:],
         "last_failure": state.last_failure,
     }
-    elements = [
-        {
+    elements = []
+    for el in observation.elements:
+        item = {
             "id": el["id"], "tag": el["tag"], "text": el["text"],
             "requires_approval": bool(el.get("requires_approval")),
         }
-        for el in observation.elements
-    ]
+        if config.SHOW_CONTEXT:
+            for key in ("under", "in", "pos"):
+                if el.get(key):
+                    item[key] = el[key]
+        elements.append(item)
+    hint = ""
+    if any(el.get("pos") for el in elements):
+        hint = " Duplicate labels include under (heading), in (section), and pos (n of n)."
     return (
         "You are a GUI agent. Return only JSON {\"actions\":[{\"type\":\"click_element\",\"params\":{\"id\":1}}]}. "
         "Do not return bounding boxes. "
         "Return exactly one next action. Use an element id from the list. Do not repeat last_failure. "
         "If requires_approval is true, return approval_needed instead of click_element. "
         "Allowed types: click_element, type, select, key, scroll, goto, wait, done, approval_needed. "
-        "click_element params need id. type params need id and text. select params need id and option. "
-        f"State: {json.dumps(summary, ensure_ascii=False)}. "
+        "click_element params need id. type params need id and text. select params need id and option."
+        + hint
+        + f" State: {json.dumps(summary, ensure_ascii=False)}. "
         f"Elements: {json.dumps(elements, ensure_ascii=False)}."
     )
 
